@@ -1,0 +1,328 @@
+/* 色は白・ネイビー・青の3色だけ（仕様書 10.1） */
+:root {
+  --white: #FFFFFF;
+  --surface: #F4F7FB;
+  --navy: #1B2A49;
+  --blue: #2F6FED;
+  --pale: #DCE7FD;
+  --card-w: 64px;
+  --card-h: 88px;
+  --gap: 8px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--white);
+  color: var(--navy);
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+  overscroll-behavior: none;          /* 引っ張って再読み込みを止める */
+  -webkit-user-select: none;
+  user-select: none;                  /* 文字選択を止める */
+  -webkit-touch-callout: none;        /* 長押しメニューを止める */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;         /* ダブルタップ拡大を止める */
+  overflow: hidden;
+}
+
+button { font: inherit; color: inherit; touch-action: manipulation; }
+.num { font-variant-numeric: tabular-nums; }
+
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding:
+    calc(env(safe-area-inset-top) + 8px)
+    calc(env(safe-area-inset-right) + 16px)
+    calc(env(safe-area-inset-bottom) + 10px)
+    calc(env(safe-area-inset-left) + 16px);
+}
+.screen[hidden] { display: none; }
+
+/* ---------- タイトル ---------- */
+.title-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+}
+.title-bombe { width: 140px; height: 160px; }
+.title {
+  margin: 8px 0 0;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+.title-en {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  color: var(--blue);
+}
+.tagline { margin: 14px 0 22px; font-size: 14px; }
+.stage-buttons { display: flex; flex-direction: column; gap: 12px; width: min(300px, 100%); }
+.stage-btn {
+  border: 3px solid var(--navy);
+  background: var(--white);
+  border-radius: 16px;
+  padding: 12px 16px;
+  text-align: left;
+  box-shadow: 0 4px 0 var(--navy);
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.stage-btn:first-child { background: var(--blue); border-color: var(--navy); color: var(--white); }
+.stage-btn b { display: block; font-size: 19px; }
+.stage-btn small { font-size: 13px; opacity: 0.85; }
+.stage-btn:active, .stage-btn.press { transform: translateY(3px); box-shadow: 0 1px 0 var(--navy); }
+.version {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--navy);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- プレイ画面 ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+}
+.stat { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.stat b { font-size: 22px; color: var(--blue); font-variant-numeric: tabular-nums; }
+.icon-btn {
+  margin-left: auto;
+  width: 44px; height: 44px;
+  border: 2px solid var(--navy);
+  border-radius: 12px;
+  background: var(--white);
+  display: grid; place-items: center;
+}
+
+.target-card {
+  margin-top: 4px;
+  background: var(--navy);
+  color: var(--white);
+  border-radius: 16px;
+  padding: 8px 14px 10px;
+  text-align: center;
+  transition: transform 200ms ease;
+}
+.target-card.pop { animation: pop 320ms ease; }
+.target-label { font-size: 12px; letter-spacing: 0.2em; opacity: 0.8; }
+.target-value { font-size: 26px; font-weight: 900; }
+
+.bombe-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: 230px;
+}
+#bombe { width: 100%; height: 100%; display: block; }
+
+.stamp {
+  position: absolute;
+  left: 50%; top: 45%;
+  transform: translate(-50%, -50%) rotate(-10deg) scale(0);
+  font-size: 54px;
+  font-weight: 900;
+  font-style: italic;
+  color: var(--blue);
+  -webkit-text-stroke: 2px var(--navy);
+  border: 5px solid var(--navy);
+  background: var(--white);
+  border-radius: 14px;
+  padding: 0 14px;
+  pointer-events: none;
+  opacity: 0;
+}
+.stamp.show { animation: stamp 450ms cubic-bezier(.2,1.6,.4,1) forwards; }
+.stamp.miss {
+  font-size: 34px;
+  color: var(--navy);
+  -webkit-text-stroke: 0;
+  font-style: normal;
+  border-width: 3px;
+}
+.stamp.fade { transition: opacity 250ms ease; opacity: 0 !important; }
+
+.state-text {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 4px 0 2px;
+  white-space: nowrap;
+}
+.state-text span { display: inline-block; margin: 0 6px; }
+.state-text i { font-style: italic; font-family: "Times New Roman", serif; font-size: 18px; margin-right: 3px; }
+
+.message {
+  min-height: 22px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--navy);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.message.show { opacity: 1; }
+.message.hint { opacity: 0.6; }
+
+.field {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px;
+  margin: auto auto 0;
+  background: var(--surface);
+  border-radius: 16px;
+  border: 2px dashed var(--pale);
+}
+.field.drop { border-color: var(--blue); background: var(--pale); }
+.slot {
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 12px;
+  border: 2px dashed var(--navy);
+  opacity: 1;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.slot.empty::after {
+  content: attr(data-n);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--navy);
+  opacity: 0.25;
+}
+.slot .card { position: absolute; inset: -2px; }
+
+.action-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 8px;
+}
+.duel-btn {
+  min-width: 190px;
+  height: 54px;
+  border: 3px solid var(--navy);
+  border-radius: 27px;
+  background: var(--blue);
+  color: var(--white);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  box-shadow: 0 5px 0 var(--navy);
+  transition: transform 80ms ease, box-shadow 80ms ease, opacity 150ms;
+}
+.duel-btn:active:not(:disabled), .duel-btn.press { transform: translateY(4px); box-shadow: 0 1px 0 var(--navy); }
+.duel-btn:disabled { background: var(--surface); color: var(--navy); opacity: 0.45; box-shadow: 0 5px 0 var(--pale); border-color: var(--pale); }
+.sub-btn {
+  height: 40px;
+  padding: 0 14px;
+  border: 2px solid var(--navy);
+  border-radius: 20px;
+  background: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+}
+.sub-btn:active { background: var(--pale); }
+
+.hand {
+  display: flex;
+  justify-content: center;
+  gap: var(--gap);
+  padding-top: 4px;
+}
+.hand-pos {
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 12px;
+  position: relative;
+}
+.hand-pos.used { border: 2px dashed var(--pale); }
+
+.card {
+  width: var(--card-w);
+  height: var(--card-h);
+  border: 3px solid var(--navy);
+  border-radius: 12px;
+  background: var(--white);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 3px 0 var(--navy);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  touch-action: none;
+  will-change: transform;
+}
+.card .icon { align-self: flex-start; width: 20px; height: 20px; }
+.card .label {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.05;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.card .label .v { font-style: italic; font-family: "Times New Roman", serif; font-size: 20px; }
+.card .label .x { display: block; }
+.card .label.long { font-size: 18px; }
+.card .foot { height: 8px; }
+.card.lift { transform: translateY(-8px); box-shadow: 0 8px 10px rgba(27, 42, 73, 0.25); }
+.card.on-field { border-color: var(--blue); box-shadow: 0 6px 10px rgba(47, 111, 237, 0.3); }
+.card.dragging { transition: none; z-index: 50; position: relative; box-shadow: 0 14px 18px rgba(27, 42, 73, 0.3); }
+.card.snap { animation: snap 180ms ease; }
+
+@keyframes stamp {
+  0% { transform: translate(-50%, -50%) rotate(-10deg) scale(2.2); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(-10deg) scale(1); opacity: 1; }
+}
+@keyframes pop {
+  0% { transform: scale(0.85); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+@keyframes snap {
+  0% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+.bump { animation: pop 300ms ease; display: inline-block; }
+
+/* 縦に長い画面（iPhone 14 など）では、カードとボンベを大きくして下に寄せる */
+@media (min-height: 780px) {
+  :root { --card-h: 98px; }
+  .bombe-area { max-height: 290px; }
+  .target-card { margin-top: 8px; padding: 10px 14px 12px; }
+  .target-value { font-size: 28px; }
+  .action-row { margin: 16px 0 14px; }
+  .card .label, .card .label .v { font-size: 21px; }
+}
+
+/* 小さい画面（iPhone SE など）向け */
+@media (max-height: 700px) {
+  :root { --card-h: 84px; }
+  .target-value { font-size: 22px; }
+  .duel-btn { height: 48px; }
+  .title-bombe { height: 120px; }
+}
+@media (max-width: 360px) {
+  :root { --card-w: 60px; --gap: 8px; }
+  .card .label { font-size: 18px; }
+}

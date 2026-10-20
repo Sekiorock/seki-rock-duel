@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1B2A49">
+  <meta name="format-detection" content="telephone=no">
+  <title>セキオロックデュエル</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- タイトル画面 -->
+  <section id="screen-title" class="screen">
+    <div class="title-wrap">
+      <canvas id="title-bombe" class="title-bombe" aria-hidden="true"></canvas>
+      <h1 class="title" data-t="title"></h1>
+      <p class="title-en" data-t="titleEn"></p>
+      <p class="tagline" data-t="tagline"></p>
+      <div id="stage-buttons" class="stage-buttons"></div>
+    </div>
+    <p id="version" class="version"></p>
+  </section>
+
+  <!-- プレイ画面 -->
+  <section id="screen-play" class="screen" hidden>
+    <header class="topbar">
+      <div class="stat"><span data-t="stageLabel"></span><b id="stage-num">1</b></div>
+      <div class="stat"><span data-t="justLabel"></span><b id="just-count" class="num">0</b></div>
+      <button id="btn-home" class="icon-btn" type="button" aria-label="ホームへ">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>
+      </button>
+    </header>
+
+    <div class="target-card">
+      <div class="target-label" data-t="targetLabel"></div>
+      <div id="target-text" class="target-value num"></div>
+    </div>
+
+    <div class="bombe-area">
+      <canvas id="bombe"></canvas>
+      <div id="stamp" class="stamp" aria-live="polite"></div>
+    </div>
+    <div id="state-text" class="state-text num"></div>
+    <div id="message" class="message" aria-live="polite"></div>
+
+    <div id="field" class="field"></div>
+    <div class="action-row">
+      <button id="btn-reroll" class="sub-btn" type="button" data-t="reroll"></button>
+      <button id="btn-duel" class="duel-btn" type="button" data-t="duel" disabled></button>
+    </div>
+
+    <div id="hand" class="hand"></div>
+  </section>
+
+  <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
