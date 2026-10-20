@@ -16,9 +16,30 @@
       <h1 class="title" data-t="title"></h1>
       <p class="title-en" data-t="titleEn"></p>
       <p class="tagline" data-t="tagline"></p>
-      <div id="stage-buttons" class="stage-buttons"></div>
+      <div class="menu-buttons">
+        <button id="btn-practice" class="menu-btn primary" type="button">
+          <b data-t="practice"></b><small data-t="practiceDesc"></small>
+        </button>
+      </div>
     </div>
     <p id="version" class="version"></p>
+  </section>
+
+  <!-- 練習室：段階を選ぶ -->
+  <section id="screen-select" class="screen" hidden>
+    <header class="topbar">
+      <button id="btn-select-back" class="sub-btn" type="button" data-t="back"></button>
+      <h2 class="screen-title" data-t="practice"></h2>
+    </header>
+    <div class="assist-wrap">
+      <div class="seg" role="radiogroup">
+        <button id="btn-assist-off" type="button" role="radio" data-t="assistOff"></button>
+        <button id="btn-assist-on" type="button" role="radio" data-t="assistOn"></button>
+      </div>
+      <p class="assist-hint" data-t="assistHint"></p>
+    </div>
+    <p class="section-label" data-t="chooseStage"></p>
+    <div id="stage-grid" class="stage-grid"></div>
   </section>
 
   <!-- プレイ画面 -->
@@ -26,6 +47,7 @@
     <header class="topbar">
       <div class="stat"><span data-t="stageLabel"></span><b id="stage-num">1</b></div>
       <div class="stat"><span data-t="justLabel"></span><b id="just-count" class="num">0</b></div>
+      <span id="assist-badge" class="badge" data-t="assistOn" hidden></span>
       <button id="btn-home" class="icon-btn" type="button" aria-label="ホームへ">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>
       </button>
@@ -35,6 +57,7 @@
       <div class="target-label" data-t="targetLabel"></div>
       <div id="target-text" class="target-value num"></div>
     </div>
+    <div id="hint" class="hint" aria-live="polite"></div>
 
     <div class="bombe-area">
       <canvas id="bombe"></canvas>

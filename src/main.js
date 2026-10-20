@@ -4,12 +4,17 @@ import { CONFIG } from './config.js';
 import { TEXT, formatP, formatV, formatT } from './text.js';
 import { toNumber } from './frac.js';
 import { createRng, randomSeed } from './rng.js';
+import { cardLines, isTempCard } from './cards.js';
 import { Board } from './game.js';
 import { BombeView } from './render.js';
+import { loadSettings, saveSettings, recordMistake, favoriteMistake } from './storage.js';
 
 const $ = (id) => document.getElementById(id);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const vibrate = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* 対応していない端末 */ } };
+const num = (s) => ({ P: toNumber(s.P), V: toNumber(s.V), T: toNumber(s.T) });
+
+const settings = loadSettings();
 
 // ---------- 文言を流し込む ----------
 document.querySelectorAll('[data-t]').forEach((el) => {
@@ -24,23 +29,41 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
 
+// 押した瞬間に沈む・震える（10.4）
+function pressable(el, onClick) {
+  el.addEventListener('pointerdown', () => { el.classList.add('press'); vibrate(CONFIG.VIBRATE_TAP_MS); });
+  el.addEventListener('pointerleave', () => el.classList.remove('press'));
+  el.addEventListener('pointercancel', () => el.classList.remove('press'));
+  el.addEventListener('click', () => { el.classList.remove('press'); onClick(); });
+}
+
 // ---------- 画面の切り替え ----------
 function show(id) {
   for (const s of document.querySelectorAll('.screen')) s.hidden = s.id !== id;
+  if (id === 'screen-title') titleBombe.resize();
 }
 
 // ---------- タイトル画面 ----------
 const titleBombe = new BombeView($('title-bombe'), { showGauge: false });
-const stageWrap = $('stage-buttons');
+pressable($('btn-practice'), () => show('screen-select'));
+
+// ---------- 練習室：段階の選択 ----------
+function renderAssist() {
+  $('btn-assist-on').setAttribute('aria-checked', String(settings.assist));
+  $('btn-assist-off').setAttribute('aria-checked', String(!settings.assist));
+}
+$('btn-assist-on').addEventListener('click', () => { settings.assist = true; saveSettings(settings); renderAssist(); });
+$('btn-assist-off').addEventListener('click', () => { settings.assist = false; saveSettings(settings); renderAssist(); });
+renderAssist();
+$('btn-select-back').addEventListener('click', () => show('screen-title'));
+
 for (const n of CONFIG.AVAILABLE_STAGES) {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'stage-btn';
-  b.innerHTML = `<b>${TEXT.playStage(n)}</b><small>${TEXT.stageHint[n] || ''}</small>`;
-  b.addEventListener('pointerdown', () => { b.classList.add('press'); vibrate(CONFIG.VIBRATE_TAP_MS); });
-  b.addEventListener('pointerleave', () => b.classList.remove('press'));
-  b.addEventListener('click', () => { b.classList.remove('press'); startGame(n); });
-  stageWrap.appendChild(b);
+  b.innerHTML = `<b>${TEXT.stageName(n)}</b><small>${TEXT.stageHint[n] || ''}</small>`;
+  pressable(b, () => startGame(n));
+  $('stage-grid').appendChild(b);
 }
 
 // ---------- プレイ画面 ----------
@@ -48,23 +71,34 @@ let board = null;
 let view = null;
 let busy = false;     // 演出中は操作を受け付けない
 let msgTimer = null;
+let hintTimer = null;
 
 function startGame(stage) {
-  board = new Board({ stage, rng: createRng(randomSeed()) });
+  board = new Board({
+    stage,
+    rng: createRng(randomSeed()),
+    preferModel: () => favoriteMistake(CONFIG.MISTAKE_MODELS),
+  });
   show('screen-play');
   if (!view) view = new BombeView($('bombe'));
   else view.resize();
   $('stage-num').textContent = String(stage);
+  $('assist-badge').hidden = !settings.assist;
   busy = false;
+  hideHint();
   renderAll();
-  view.set(toNumber(board.state.P), toNumber(board.target));
-  showMessage(TEXT.handHint, 'hint');
+  view.set(num(board.state), toNumber(board.target));
+  showMessage(TEXT.handHint, 'soft');
 }
 
 $('btn-home').addEventListener('click', () => {
   if (busy) return;
   show('screen-title');
-  titleBombe.resize();
+
+// 動作確認用（URL に ?debug を付けたときだけ）
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__srd = { get board() { return board; }, startGame };
+}
 });
 
 function renderAll() {
@@ -84,29 +118,60 @@ function showMessage(text, kind = 'show', ms = 0) {
   const el = $('message');
   clearTimeout(msgTimer);
   el.textContent = text;
-  el.className = `message ${kind === 'hint' ? 'show hint' : 'show'}`;
+  el.className = `message show ${kind}`;
   if (ms) msgTimer = setTimeout(() => { el.className = 'message'; }, ms);
 }
 function hideMessage() {
   clearTimeout(msgTimer);
   $('message').className = 'message';
 }
+// 考え違いの一言は目標カードの下に出す（5.3）
+function showHint(text, ms) {
+  const el = $('hint');
+  clearTimeout(hintTimer);
+  el.textContent = text;
+  el.className = 'hint show';
+  hintTimer = setTimeout(hideHint, ms);
+}
+function hideHint() {
+  clearTimeout(hintTimer);
+  $('hint').className = 'hint';
+}
 
-// カードの見た目
-const PISTON_ICON =
-  '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="7" width="14" height="11" rx="2" fill="none" stroke="#1B2A49" stroke-width="2"/><rect x="4.5" y="9" width="11" height="3" fill="#2F6FED"/><path d="M10 9V2M6 2h8" stroke="#1B2A49" stroke-width="2" stroke-linecap="round"/></svg>';
+// 補助あり：場に置いたカードを出したときの変化を予告する
+function updatePreview() {
+  if (!settings.assist || busy) { view.setGhost(null); return; }
+  const r = board.preview();
+  if (!r) {
+    view.setGhost(null);
+    if ($('message').classList.contains('preview')) hideMessage();
+    return;
+  }
+  view.setGhost(num(r.state));
+  showMessage(r.valid ? TEXT.preview(formatP(r.state.P)) : TEXT.previewInvalid, 'preview');
+}
+
+// ---------- カードの見た目 ----------
+const ICONS = {
+  // 体積カード：ピストン
+  vmul: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="7" width="14" height="11" rx="2" fill="none" stroke="#1B2A49" stroke-width="2"/><rect x="4.5" y="9" width="11" height="3" fill="#2F6FED"/><path d="M10 9V2M6 2h8" stroke="#1B2A49" stroke-width="2" stroke-linecap="round"/></svg>',
+  // 体積指定カード：ピストンと目印
+  vset: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="7" width="14" height="11" rx="2" fill="none" stroke="#1B2A49" stroke-width="2"/><rect x="4.5" y="9" width="11" height="3" fill="#2F6FED"/><path d="M10 9V3" stroke="#1B2A49" stroke-width="2" stroke-linecap="round"/><path d="M1 10.5h2M17 10.5h2" stroke="#2F6FED" stroke-width="2"/></svg>',
+  // 温度カード（K）：温度計
+  tset_k: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3a2 2 0 0 1 4 0v9.3a4 4 0 1 1-4 0z" fill="#fff" stroke="#1B2A49" stroke-width="2"/><circle cx="10" cy="15" r="2.2" fill="#2F6FED"/><path d="M10 13V7" stroke="#2F6FED" stroke-width="2"/><path d="M13 5h2M13 8h2M13 11h2" stroke="#1B2A49" stroke-width="1.5"/></svg>',
+  // 温度カード（℃）：目盛りが途中でずれた温度計（セルシウスの罠の目印）
+  tset_c: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3a2 2 0 0 1 4 0v9.3a4 4 0 1 1-4 0z" fill="#fff" stroke="#1B2A49" stroke-width="2"/><circle cx="10" cy="15" r="2.2" fill="#2F6FED"/><path d="M10 13V7" stroke="#2F6FED" stroke-width="2"/><path d="M13 4h2M13 7h2M14 9.5h3M14 12h3" stroke="#1B2A49" stroke-width="1.5"/></svg>',
+};
 
 function cardHTML(card) {
-  if (card.type === 'vmul') {
-    const r = card.den === 1 ? `×${card.num}` : `×${card.num}/${card.den}`;
-    return `${PISTON_ICON}<span class="label"><span class="v">V</span><span class="x">${r}</span></span><span class="foot"></span>`;
-  }
-  return '<span class="label">?</span>';
+  const l = cardLines(card);
+  const top = l.top.replace(/^([VT])/, '<span class="v">$1</span>');
+  return `${ICONS[card.type] || ''}<span class="label"><span class="top">${top}</span><span class="bottom">${l.bottom}</span></span><span class="foot"></span>`;
 }
 
 function makeCard(card) {
   const el = document.createElement('div');
-  el.className = 'card';
+  el.className = 'card' + (isTempCard(card) ? ' temp' : '');
   el.innerHTML = cardHTML(card);
   el.setAttribute('role', 'button');
   return el;
@@ -138,6 +203,7 @@ function renderField() {
     field.appendChild(s);
   });
   $('btn-duel').disabled = !board.canDuel();
+  updatePreview();
 }
 
 function renderHand() {
@@ -193,20 +259,22 @@ function attachDrag(el, idx) {
     el.style.transform = '';
     $('field').classList.remove('drop');
     if (cancelled) return;
-    let placed = false;
+    let res = 'none';
     if (dragging) {
       const slot = slotAt(e.clientX, e.clientY);
-      if (slot !== undefined) placed = board.place(idx, slot);
+      if (slot !== undefined) res = board.place(idx, slot);
     } else {
-      placed = board.place(idx);
+      res = board.place(idx);
     }
-    if (placed) {
-      hideMessage();
+    if (res === 'ok') {
+      if (!settings.assist) hideMessage();
       renderField();
       renderHand();
       const s = board.field.indexOf(idx);
       const c = document.querySelector(`.slot[data-slot="${s}"] .card`);
       if (c) c.classList.add('snap');
+    } else if (res === 'temp_limit') {
+      showMessage(TEXT.tempLimit, 'show', CONFIG.ANIM.NOTICE_MS);
     }
   };
   el.addEventListener('pointerup', (e) => finish(e, false));
@@ -225,41 +293,54 @@ function slotAt(x, y) {
   return null;
 }
 
+// カード1枚を、弧を描いてボンベへ飛ばす
+function flyCard(c) {
+  const to = view.bombeCenter();
+  const r = c.getBoundingClientRect();
+  const dx = to.x - (r.left + r.width / 2);
+  const dy = to.y - (r.top + r.height / 2);
+  const tilt = dx > 0 ? 1 : -1;
+  const anim = c.animate(
+    [
+      { transform: 'translate(0,0) scale(1) rotate(0)', opacity: 1 },
+      { transform: `translate(${dx * 0.45}px, ${dy * 0.55 - 70}px) scale(0.85) rotate(${12 * tilt}deg)`, opacity: 1, offset: 0.5 },
+      { transform: `translate(${dx}px, ${dy}px) scale(0.15) rotate(${25 * tilt}deg)`, opacity: 0 },
+    ],
+    { duration: CONFIG.ANIM.CARD_FLY_MS, easing: 'ease-in', fill: 'forwards' },
+  );
+  return anim.finished.catch(() => {});
+}
+
 // ---------- デュエル！ ----------
 $('btn-duel').addEventListener('pointerdown', () => { if (!$('btn-duel').disabled) vibrate(CONFIG.VIBRATE_TAP_MS); });
 $('btn-duel').addEventListener('click', async () => {
   if (busy || !board.canDuel()) return;
   busy = true;
   hideMessage();
+  hideHint();
+  view.setGhost(null);
+  $('btn-duel').disabled = true;
   const result = board.duel();
   const A = CONFIG.ANIM;
 
-  // 1) カードが左から1枚ずつ弧を描いてボンベへ
+  // 1) カードが左から1枚ずつボンベに吸い込まれ、そのたびにピストン・温度・針が変わる
+  //    （次のカードは、前のカードの変化と重ねて飛ばし始める）
   const cards = [...document.querySelectorAll('.slot .card')];
-  const to = view.bombeCenter();
-  const flights = cards.map((c, i) => {
-    const r = c.getBoundingClientRect();
-    const dx = to.x - (r.left + r.width / 2);
-    const dy = to.y - (r.top + r.height / 2);
-    const anim = c.animate(
-      [
-        { transform: 'translate(0,0) scale(1) rotate(0)', opacity: 1 },
-        { transform: `translate(${dx * 0.45}px, ${dy * 0.55 - 70}px) scale(0.85) rotate(${dx > 0 ? 12 : -12}deg)`, opacity: 1, offset: 0.5 },
-        { transform: `translate(${dx}px, ${dy}px) scale(0.15) rotate(${dx > 0 ? 25 : -25}deg)`, opacity: 0 },
-      ],
-      { duration: A.CARD_FLY_MS, delay: i * A.CARD_STAGGER_MS, easing: 'ease-in', fill: 'forwards' },
-    );
-    return anim.finished.catch(() => {});
-  });
-  await Promise.all(flights);
+  let prevStep = Promise.resolve();
+  for (let i = 0; i < cards.length; i++) {
+    await flyCard(cards[i]);
+    await prevStep;
+    const st = result.steps[i];
+    renderState(st);
+    prevStep = view.animateTo(num(st), A.STEP_MS);
+  }
+  await prevStep;
 
   const stamp = $('stamp');
   stamp.className = 'stamp';
 
   if (result.kind === 'just') {
     // 2) 針が目標でピタッと止まる → 3) JUST! → 4) 光の輪
-    renderState(result.after);
-    await view.moveNeedle(toNumber(result.after.P));
     stamp.textContent = TEXT.just;
     void stamp.offsetWidth;
     stamp.className = 'stamp show';
@@ -272,29 +353,30 @@ $('btn-duel').addEventListener('click', async () => {
     await wait(A.STAMP_MS);
     // 5) 次の目標カード
     stamp.classList.add('fade');
+    busy = false;
     renderAll();
-    view.set(toNumber(board.state.P), toNumber(board.target));
+    view.set(num(board.state), toNumber(board.target));
     const tc = document.querySelector('.target-card');
     tc.classList.remove('pop'); void tc.offsetWidth; tc.classList.add('pop');
     if (board.ventilated) showMessage(TEXT.ventilated, 'show', A.NOTICE_MS);
   } else {
-    // ハズレ：針が結果の値まで振れて止まり、ボンベがよろける。カードは手札へ戻る
-    renderState(result.after);
-    await view.moveNeedle(Math.min(toNumber(result.after.P), CONFIG.GAUGE_MAX * 1.04), A.NEEDLE_MS * 1.3);
+    // ハズレ：ボンベがよろけ、考え違いの一言を目標カードの下に出す。カードは手札へ、ボンベは元へ
     view.shake();
     stamp.textContent = TEXT.miss;
     void stamp.offsetWidth;
     stamp.className = 'stamp miss show';
-    showMessage(result.valid ? TEXT.missResult(formatP(result.after.P)) : TEXT.missInvalid, 'show', A.MISS_MSG_MS);
+    if (result.mistake !== 'range') recordMistake(result.mistake, CONFIG.MISTAKE_HISTORY);
+    showHint(TEXT.mistakes[result.mistake] || TEXT.mistakes.calc, A.MISS_MSG_MS);
+    if (result.valid) showMessage(TEXT.missResult(formatP(result.after.P)), 'show', A.MISS_MSG_MS);
     await wait(A.MISS_HOLD_MS);
     stamp.classList.add('fade');
     board.commitMiss();
     renderState(board.state);
+    await view.animateTo(num(board.state), A.MISS_BACK_MS);
+    busy = false;
     renderField();
     renderHand();
-    await view.moveNeedle(toNumber(board.state.P), A.NEEDLE_MS);
   }
-  busy = false;
 });
 
 // ---------- 引き直し ----------
@@ -303,8 +385,13 @@ $('btn-reroll').addEventListener('click', () => {
   vibrate(CONFIG.VIBRATE_TAP_MS);
   board.reroll();
   renderAll();
-  view.set(toNumber(board.state.P), toNumber(board.target));
+  view.set(num(board.state), toNumber(board.target));
   showMessage(board.ventilated ? TEXT.ventilated : TEXT.rerolled, 'show', CONFIG.ANIM.NOTICE_MS);
 });
 
 show('screen-title');
+
+// 動作確認用（URL に ?debug を付けたときだけ）
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__srd = { get board() { return board; }, startGame };
+}

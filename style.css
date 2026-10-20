@@ -53,7 +53,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   text-align: center;
   gap: 6px;
 }
-.title-bombe { width: 140px; height: 160px; }
+.title-bombe { width: 200px; height: 200px; }
 .title {
   margin: 8px 0 0;
   font-size: 30px;
@@ -68,8 +68,8 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   color: var(--blue);
 }
 .tagline { margin: 14px 0 22px; font-size: 14px; }
-.stage-buttons { display: flex; flex-direction: column; gap: 12px; width: min(300px, 100%); }
-.stage-btn {
+.menu-buttons { display: flex; flex-direction: column; gap: 12px; width: min(300px, 100%); }
+.menu-btn, .stage-btn {
   border: 3px solid var(--navy);
   background: var(--white);
   border-radius: 16px;
@@ -78,10 +78,41 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   box-shadow: 0 4px 0 var(--navy);
   transition: transform 80ms ease, box-shadow 80ms ease;
 }
-.stage-btn:first-child { background: var(--blue); border-color: var(--navy); color: var(--white); }
-.stage-btn b { display: block; font-size: 19px; }
-.stage-btn small { font-size: 13px; opacity: 0.85; }
-.stage-btn:active, .stage-btn.press { transform: translateY(3px); box-shadow: 0 1px 0 var(--navy); }
+.menu-btn.primary { background: var(--blue); color: var(--white); }
+.menu-btn b, .stage-btn b { display: block; font-size: 19px; }
+.menu-btn small, .stage-btn small { font-size: 13px; opacity: 0.85; }
+.menu-btn:active, .menu-btn.press, .stage-btn:active, .stage-btn.press { transform: translateY(3px); box-shadow: 0 1px 0 var(--navy); }
+
+/* ---------- 練習室の選択画面 ---------- */
+.screen-title { margin: 0 0 0 4px; font-size: 22px; font-weight: 900; }
+.assist-wrap { margin: 18px 0 6px; }
+.seg {
+  display: flex;
+  border: 3px solid var(--navy);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.seg button {
+  flex: 1;
+  height: 48px;
+  border: 0;
+  background: var(--white);
+  font-size: 16px;
+  font-weight: 800;
+}
+.seg button + button { border-left: 3px solid var(--navy); }
+.seg button[aria-checked="true"] { background: var(--navy); color: var(--white); }
+.assist-hint { margin: 8px 2px 0; font-size: 12.5px; line-height: 1.45; opacity: 0.8; }
+.section-label { margin: 18px 2px 8px; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; }
+.stage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.stage-btn { padding: 14px 14px; }
+.stage-btn b { font-size: 21px; }
+.stage-btn.new { background: var(--pale); }
+
 .version {
   margin: 0;
   text-align: center;
@@ -120,6 +151,33 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 }
 .target-card.pop { animation: pop 320ms ease; }
 .target-label { font-size: 12px; letter-spacing: 0.2em; opacity: 0.8; }
+.hint {
+  min-height: 0;
+  margin: 6px auto 0;
+  padding: 0 12px;
+  max-width: 100%;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--navy);
+  background: var(--pale);
+  border-radius: 10px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 180ms ease, max-height 180ms ease, padding 180ms ease;
+}
+.hint.show { opacity: 1; max-height: 60px; padding: 6px 12px; }
+.badge {
+  font-size: 11px;
+  font-weight: 800;
+  border: 2px solid var(--blue);
+  color: var(--blue);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.badge[hidden] { display: none; }
 .target-value { font-size: 26px; font-weight: 900; }
 
 .bombe-area {
@@ -176,7 +234,8 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   transition: opacity 200ms ease;
 }
 .message.show { opacity: 1; }
-.message.hint { opacity: 0.6; }
+.message.soft { opacity: 0.6; }
+.message.preview { opacity: 1; color: var(--blue); font-weight: 800; }
 
 .field {
   display: flex;
@@ -282,6 +341,10 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 }
 .card .label .v { font-style: italic; font-family: "Times New Roman", serif; font-size: 20px; }
 .card .label .x { display: block; }
+.card .label .top { display: block; font-size: 15px; font-weight: 800; }
+.card .label .top .v { font-size: 18px; }
+.card .label .bottom { display: block; font-size: 18px; letter-spacing: -0.02em; }
+.card.temp .label .bottom { font-size: 16.5px; }
 .card .label.long { font-size: 18px; }
 .card .foot { height: 8px; }
 .card.lift { transform: translateY(-8px); box-shadow: 0 8px 10px rgba(27, 42, 73, 0.25); }
@@ -308,7 +371,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 /* 縦に長い画面（iPhone 14 など）では、カードとボンベを大きくして下に寄せる */
 @media (min-height: 780px) {
   :root { --card-h: 98px; }
-  .bombe-area { max-height: 290px; }
+  .bombe-area { max-height: 360px; }
   .target-card { margin-top: 8px; padding: 10px 14px 12px; }
   .target-value { font-size: 28px; }
   .action-row { margin: 16px 0 14px; }
