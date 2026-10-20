@@ -23,7 +23,7 @@ export function save(key, value) {
 }
 
 // ---- 設定（srd.settings） ----
-const DEFAULT_SETTINGS = { assist: false };
+const DEFAULT_SETTINGS = { assist: false, lang: 'ja' };
 
 export function loadSettings() {
   return { ...DEFAULT_SETTINGS, ...load('settings', {}) };

@@ -129,10 +129,11 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   gap: 16px;
   min-height: 44px;
 }
-.stat { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.topbar { gap: 12px; }
+.stat { display: flex; align-items: baseline; gap: 5px; font-size: 13px; white-space: nowrap; }
 .stat b { font-size: 22px; color: var(--blue); font-variant-numeric: tabular-nums; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .icon-btn {
-  margin-left: auto;
   width: 44px; height: 44px;
   border: 2px solid var(--navy);
   border-radius: 12px;
@@ -388,4 +389,76 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 @media (max-width: 360px) {
   :root { --card-w: 60px; --gap: 8px; }
   .card .label { font-size: 18px; }
+}
+
+/* ---------- 言語の切り替え ---------- */
+.corner { display: flex; justify-content: flex-end; min-height: 44px; }
+.lang-btn {
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  gap: 2px;
+  border: 2px solid var(--navy);
+  border-radius: 12px;
+  background: var(--white);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.lang-btn span {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--navy);
+  opacity: 0.45;
+}
+.lang-btn span.on { background: var(--navy); color: var(--white); opacity: 1; }
+.lang-btn:active { transform: translateY(1px); }
+
+/* 英語のときは文字を少し詰める */
+html[lang="en"] .title { font-size: 30px; letter-spacing: 0.06em; }
+html[lang="en"] .title-en { letter-spacing: 0.2em; }
+html[lang="en"] .duel-btn { letter-spacing: 0.12em; }
+html[lang="en"] .target-value { font-size: 25px; }
+html[lang="en"] .hint { font-size: 13px; }
+
+/* ---------- 読み込みに失敗したとき ---------- */
+.boot-error {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.boot-error[hidden] { display: none; }
+.boot-error button {
+  margin-top: 12px;
+  height: 52px;
+  padding: 0 24px;
+  border: 3px solid var(--navy);
+  border-radius: 26px;
+  background: var(--blue);
+  color: var(--white);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+/* とても幅の狭い画面（幅320px級）：手札5枚が収まるように、余白とカードを少し詰める */
+@media (max-width: 340px) {
+  :root { --card-w: 54px; --gap: 5px; }
+  .screen { padding-left: calc(env(safe-area-inset-left) + 8px); padding-right: calc(env(safe-area-inset-right) + 8px); }
+  .card { padding: 3px; }
+  .card .label .bottom { font-size: 15px; }
+  .card.temp .label .bottom { font-size: 14px; }
 }

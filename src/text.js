@@ -1,12 +1,14 @@
-// 画面の文言はすべてここに集める（将来の英語版に備える）。
+// 画面の文言はすべてここに集める。日本語（ja）と英語（en）。
+// TEXT はいま選んでいる言語の文言。setLang() で中身が入れ替わる。
 
-export const TEXT = {
+const JA = {
   title: 'セキオロックデュエル',
   titleEn: 'SEKIO ROCK DUEL',
   tagline: 'カードを組み合わせて、圧力をぴったり合わせろ！',
   practice: '練習室',
   practiceDesc: '段階を選んで、じっくり解く',
   back: 'もどる',
+  langLabel: '言語を切り替える',
 
   assistOn: '補助あり',
   assistOff: '補助なし',
@@ -37,7 +39,6 @@ export const TEXT = {
   just: 'JUST!',
   miss: 'ハズレ',
   missResult: (p) => `結果は ${p}。もう一度！`,
-  missInvalid: '途中で体積が使えない値になった。順番を見直そう',
   ventilated: '換気！ ボンベを最初の状態に戻したよ',
   rerolled: '手札を入れ替えた',
 
@@ -51,12 +52,92 @@ export const TEXT = {
     range: '途中で体積が使えない値になった。順番を見直そう',
   },
 
-  // 表示用の単位
   unitP: '×10⁵ Pa',
   unitV: 'L',
   unitT: 'K',
   approx: '約',
 };
+
+const EN = {
+  title: 'SEKIO ROCK DUEL',
+  titleEn: 'セキオロックデュエル',
+  tagline: 'Combine cards to hit the target pressure exactly!',
+  practice: 'Practice Room',
+  practiceDesc: 'Pick a level and take your time',
+  back: 'Back',
+  langLabel: 'Switch language',
+
+  assistOn: 'Assist ON',
+  assistOff: 'Assist OFF',
+  assistHint: 'Assist ON: when you place cards, a dotted line previews what will happen',
+  chooseStage: 'Choose a level',
+  stageName: (n) => `Level ${n}`,
+  stageHint: {
+    1: 'Volume card ×1',
+    2: 'Volume cards ×2',
+    3: 'Temperature cards ×1',
+    4: 'Volume + temp ×2',
+    5: '°C cards appear ×2',
+    6: 'All cards ×3',
+  },
+
+  stageLabel: 'Lv',
+  justLabel: 'Just',
+  home: 'Home',
+  targetLabel: 'TARGET',
+  targetText: (p) => `Make P = ${p}`,
+  duel: 'DUEL!',
+  reroll: 'Redraw',
+  handHint: 'Tap (or drag) a card to place it',
+  tempLimit: 'Only one temperature card per duel',
+  preview: (p) => `Preview: P → ${p}`,
+  previewInvalid: 'Preview: goes out of range on the way',
+
+  just: 'JUST!',
+  miss: 'MISS',
+  missResult: (p) => `Result: ${p}. Try again!`,
+  ventilated: 'Vented! The cylinder is back to its starting state',
+  rerolled: 'New hand dealt',
+
+  mistakes: {
+    inverse_v: 'Smaller volume means higher pressure (inverse proportion)',
+    celsius: 'Always convert to K before taking temperature ratios',
+    inverse_t: 'At constant volume, pressure is proportional to temperature',
+    ignore_t: 'Multiply by both the volume ratio and the temperature ratio',
+    calc: 'Write each ratio down, card by card, and multiply in order',
+    range: 'The volume went out of range on the way. Check the order',
+  },
+
+  unitP: '×10⁵ Pa',
+  unitV: 'L',
+  unitT: 'K',
+  approx: '≈',
+};
+
+const TEXTS = { ja: JA, en: EN };
+export const LANGS = ['ja', 'en'];
+
+export const TEXT = { ...JA };
+let current = 'ja';
+
+export function setLang(lang) {
+  current = TEXTS[lang] ? lang : 'ja';
+  for (const k of Object.keys(TEXT)) delete TEXT[k];
+  Object.assign(TEXT, TEXTS[current]);
+  return current;
+}
+
+export const getLang = () => current;
+
+// 端末の言語から最初の言語を決める（日本語以外なら英語）
+export function defaultLang() {
+  try {
+    const l = (navigator.language || 'ja').toLowerCase();
+    return l.startsWith('ja') ? 'ja' : 'en';
+  } catch (e) {
+    return 'ja';
+  }
+}
 
 // ---- 数値の表示 ----
 // P は 0.1×10⁵ Pa を 1 とする分数、V は 0.5 L を 1 とする分数、T は K の分数

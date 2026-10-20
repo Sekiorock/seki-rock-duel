@@ -6,35 +6,55 @@
   <meta name="theme-color" content="#1B2A49">
   <meta name="format-detection" content="telephone=no">
   <title>セキオロックデュエル</title>
-  <link rel="stylesheet" href="style.css">
+  <!-- ?v= は版番号。版が変わるたびに必ず新しいファイルを読み込ませるための印 -->
+  <link rel="stylesheet" href="style.css?v=0.2.1">
+  <script>
+    // 読み込みに失敗したとき（古いファイルが混ざったときなど）に、白い画面のままにしない
+    (function () {
+      function fail() {
+        if (window.__srdReady) return;
+        var el = document.getElementById('boot-error');
+        if (el) el.hidden = false;
+      }
+      window.addEventListener('error', function () { setTimeout(fail, 0); });
+      window.addEventListener('unhandledrejection', function () { setTimeout(fail, 0); });
+      window.addEventListener('load', function () { setTimeout(fail, 3000); });
+    })();
+  </script>
 </head>
 <body>
   <!-- タイトル画面 -->
   <section id="screen-title" class="screen">
+    <div class="corner">
+      <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+    </div>
     <div class="title-wrap">
       <canvas id="title-bombe" class="title-bombe" aria-hidden="true"></canvas>
-      <h1 class="title" data-t="title"></h1>
-      <p class="title-en" data-t="titleEn"></p>
-      <p class="tagline" data-t="tagline"></p>
+      <h1 class="title" data-t="title">セキオロックデュエル</h1>
+      <p class="title-en" data-t="titleEn">SEKIO ROCK DUEL</p>
+      <p class="tagline" data-t="tagline">カードを組み合わせて、圧力をぴったり合わせろ！</p>
       <div class="menu-buttons">
         <button id="btn-practice" class="menu-btn primary" type="button">
-          <b data-t="practice"></b><small data-t="practiceDesc"></small>
+          <b data-t="practice">練習室</b><small data-t="practiceDesc">段階を選んで、じっくり解く</small>
         </button>
       </div>
     </div>
-    <p id="version" class="version"></p>
+    <p id="version" class="version">v0.2.1</p>
   </section>
 
   <!-- 練習室：段階を選ぶ -->
   <section id="screen-select" class="screen" hidden>
     <header class="topbar">
-      <button id="btn-select-back" class="sub-btn" type="button" data-t="back"></button>
-      <h2 class="screen-title" data-t="practice"></h2>
+      <button id="btn-select-back" class="sub-btn" type="button" data-t="back">もどる</button>
+      <h2 class="screen-title" data-t="practice">練習室</h2>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+      </div>
     </header>
     <div class="assist-wrap">
       <div class="seg" role="radiogroup">
-        <button id="btn-assist-off" type="button" role="radio" data-t="assistOff"></button>
-        <button id="btn-assist-on" type="button" role="radio" data-t="assistOn"></button>
+        <button id="btn-assist-off" type="button" role="radio" data-t="assistOff">補助なし</button>
+        <button id="btn-assist-on" type="button" role="radio" data-t="assistOn">補助あり</button>
       </div>
       <p class="assist-hint" data-t="assistHint"></p>
     </div>
@@ -48,9 +68,12 @@
       <div class="stat"><span data-t="stageLabel"></span><b id="stage-num">1</b></div>
       <div class="stat"><span data-t="justLabel"></span><b id="just-count" class="num">0</b></div>
       <span id="assist-badge" class="badge" data-t="assistOn" hidden></span>
-      <button id="btn-home" class="icon-btn" type="button" aria-label="ホームへ">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>
-      </button>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button id="btn-home" class="icon-btn" type="button" aria-label="ホームへ">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
     </header>
 
     <div class="target-card">
@@ -75,7 +98,14 @@
     <div id="hand" class="hand"></div>
   </section>
 
+  <!-- 読み込みに失敗したときのお知らせ -->
+  <div id="boot-error" class="boot-error" hidden>
+    <p><b>読み込みに失敗しました</b><br>古いファイルが残っている可能性があります。<br>1〜2分待ってから、下のボタンを押してください。</p>
+    <p><b>Failed to load.</b><br>Please wait a minute and reload.</p>
+    <button type="button" onclick="location.reload()">再読み込み / Reload</button>
+  </div>
+
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
-  <script type="module" src="src/main.js"></script>
+  <script type="module" src="src/main.js?v=0.2.1"></script>
 </body>
 </html>

@@ -1,13 +1,13 @@
 // 全体の進行（画面の切り替え）と、盤面の表示・タッチ操作。
 
-import { CONFIG } from './config.js';
-import { TEXT, formatP, formatV, formatT } from './text.js';
-import { toNumber } from './frac.js';
-import { createRng, randomSeed } from './rng.js';
-import { cardLines, isTempCard } from './cards.js';
-import { Board } from './game.js';
-import { BombeView } from './render.js';
-import { loadSettings, saveSettings, recordMistake, favoriteMistake } from './storage.js';
+import { CONFIG } from './config.js?v=0.2.1';
+import { TEXT, formatP, formatV, formatT, setLang, getLang, LANGS } from './text.js?v=0.2.1';
+import { toNumber } from './frac.js?v=0.2.1';
+import { createRng, randomSeed } from './rng.js?v=0.2.1';
+import { cardLines, isTempCard } from './cards.js?v=0.2.1';
+import { Board } from './game.js?v=0.2.1';
+import { BombeView } from './render.js?v=0.2.1';
+import { loadSettings, saveSettings, recordMistake, favoriteMistake } from './storage.js?v=0.2.1';
 
 const $ = (id) => document.getElementById(id);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -15,14 +15,48 @@ const vibrate = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catc
 const num = (s) => ({ P: toNumber(s.P), V: toNumber(s.V), T: toNumber(s.T) });
 
 const settings = loadSettings();
+setLang(settings.lang);
 
-// ---------- 文言を流し込む ----------
-document.querySelectorAll('[data-t]').forEach((el) => {
-  const v = TEXT[el.dataset.t];
-  if (typeof v === 'string') el.textContent = v;
-});
+// ---------- 文言を流し込む（言語を切り替えたときも、ここを呼び直す） ----------
+function applyTexts() {
+  document.documentElement.lang = getLang();
+  document.title = TEXT.title;
+  document.querySelectorAll('[data-t]').forEach((el) => {
+    const v = TEXT[el.dataset.t];
+    if (typeof v === 'string') el.textContent = v;
+  });
+  $('btn-home').setAttribute('aria-label', TEXT.home);
+  document.querySelectorAll('[data-lang-toggle]').forEach((b) => {
+    b.setAttribute('aria-label', TEXT.langLabel);
+    b.querySelectorAll('[data-l]').forEach((sp) => sp.classList.toggle('on', sp.dataset.l === getLang()));
+  });
+  document.querySelectorAll('#stage-grid .stage-btn').forEach((b) => {
+    const n = Number(b.dataset.stage);
+    b.innerHTML = `<b>${TEXT.stageName(n)}</b><small>${TEXT.stageHint[n] || ''}</small>`;
+  });
+}
 $('version').textContent = CONFIG.VERSION;
-$('btn-home').setAttribute('aria-label', TEXT.home);
+
+// 言語の切り替え（ホーム・練習室・プレイ画面の右上のボタン）
+function toggleLang() {
+  const next = LANGS[(LANGS.indexOf(getLang()) + 1) % LANGS.length];
+  settings.lang = setLang(next);
+  saveSettings(settings);
+  applyTexts();
+  if (board) {
+    // プレイ中の表示も、その場で言語を入れ替える（演出中はカードを作り直さない）
+    $('target-text').textContent = TEXT.targetText(formatP(board.target));
+    if (!busy) {
+      hideMessage();
+      hideHint();
+      renderAll();
+    }
+  }
+}
+document.querySelectorAll('[data-lang-toggle]').forEach((b) => {
+  b.addEventListener('pointerdown', () => vibrate(CONFIG.VIBRATE_TAP_MS));
+  b.addEventListener('click', toggleLang);
+});
 
 // ---------- 誤操作の防止（長押しメニュー、ピンチ拡大） ----------
 document.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -61,7 +95,7 @@ for (const n of CONFIG.AVAILABLE_STAGES) {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'stage-btn';
-  b.innerHTML = `<b>${TEXT.stageName(n)}</b><small>${TEXT.stageHint[n] || ''}</small>`;
+  b.dataset.stage = String(n);
   pressable(b, () => startGame(n));
   $('stage-grid').appendChild(b);
 }
@@ -94,11 +128,6 @@ function startGame(stage) {
 $('btn-home').addEventListener('click', () => {
   if (busy) return;
   show('screen-title');
-
-// 動作確認用（URL に ?debug を付けたときだけ）
-if (new URLSearchParams(location.search).has('debug')) {
-  window.__srd = { get board() { return board; }, startGame };
-}
 });
 
 function renderAll() {
@@ -389,7 +418,9 @@ $('btn-reroll').addEventListener('click', () => {
   showMessage(board.ventilated ? TEXT.ventilated : TEXT.rerolled, 'show', CONFIG.ANIM.NOTICE_MS);
 });
 
+applyTexts();
 show('screen-title');
+window.__srdReady = true; // 読み込みに成功した印（index.html のお知らせを出さない）
 
 // 動作確認用（URL に ?debug を付けたときだけ）
 if (new URLSearchParams(location.search).has('debug')) {

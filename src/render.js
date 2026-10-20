@@ -6,7 +6,7 @@
 //   温度 T … 左の温度計の高さと、粒の速さ（√T に比例）と粒の色（熱いほど濃い青）
 //   圧力 P … 壁を押す矢印の長さ、気体の色の濃さ、圧力計の針。粒が壁に当たると光る
 
-import { CONFIG } from './config.js';
+import { CONFIG } from './config.js?v=0.2.1';
 
 const NAVY = '#1B2A49';
 const BLUE = '#2F6FED';

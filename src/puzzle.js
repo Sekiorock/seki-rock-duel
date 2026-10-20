@@ -1,10 +1,10 @@
 // 問題の自動生成、解の探索、誤答の推定（仕様書 4.4、4.5）。
 
-import { CONFIG } from './config.js';
-import { eq } from './frac.js';
+import { CONFIG } from './config.js?v=0.2.1';
+import { eq } from './frac.js?v=0.2.1';
 import {
   vmul, vset, tsetK, tsetC, applySequence, isValidP, isLegalPlay, startState,
-} from './cards.js';
+} from './cards.js?v=0.2.1';
 
 // ---- カードを作る ----
 function weightedPick(list, rng) {
