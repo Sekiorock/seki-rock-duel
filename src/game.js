@@ -1,16 +1,17 @@
 // 1人分の盤面の進行（選ぶ、出す、判定）。ひとりでも対戦でも同じものを使う。
 
-import { CONFIG } from './config.js?v=0.3.0';
-import { eq } from './frac.js?v=0.3.0';
-import { startState, applySequence, isTempCard } from './cards.js?v=0.3.0';
-import { generateProblem, rerollHand, estimateMistake } from './puzzle.js?v=0.3.0';
+import { CONFIG } from './config.js?v=0.4.0';
+import { eq } from './frac.js?v=0.4.0';
+import { startState, applySequence, isTempCard } from './cards.js?v=0.4.0';
+import { generateProblem, rerollHand, estimateMistake } from './puzzle.js?v=0.4.0';
 
 let uidCounter = 1;
 const withUid = (c) => (c && !c.uid ? { ...c, uid: uidCounter++ } : c);
 
 export class Board {
   // preferModel：おとりで優先する考え違い（関数で渡すと、問題を作るたびに最新の値を使う）
-  constructor({ stage, rng, preferModel = () => null }) {
+  // problem を渡すと、その問題から始める（今日の5問のように、問題が決まっているとき）
+  constructor({ stage, rng, preferModel = () => null, problem = null }) {
     this.stage = stage;
     this.rng = rng;
     this.preferModel = preferModel;
@@ -19,7 +20,13 @@ export class Board {
     this.field = Array(CONFIG.FIELD_SIZE).fill(null); // 手札の位置（0〜4）を入れる
     this.justCount = 0;
     this.missCount = 0;
-    this._setProblem(generateProblem(this._genArgs({ state: this.state, keep: null })));
+    this.dealt = 0;           // 問題を出した回数（新しく配られたカードの見分けに使う）
+    this._setProblem(problem || generateProblem(this._genArgs({ state: this.state, keep: null })));
+  }
+
+  // 決まった問題を読み込む
+  loadProblem(p) {
+    this._setProblem(p);
   }
 
   _genArgs(extra) {
@@ -27,6 +34,7 @@ export class Board {
   }
 
   _setProblem(p) {
+    this.dealt++;
     this.state = p.state;
     this.hand = p.hand.map(withUid);
     this.target = p.target;

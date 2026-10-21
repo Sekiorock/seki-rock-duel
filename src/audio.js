@@ -1,7 +1,7 @@
 // 音の合成と効果音（9.4、9.5）。既存の音声ファイルは使わず、その場で合成する。
 // スマホは画面に触れるまで音を出せないので、最初のタップで unlock() を呼ぶ。
 
-import { CONFIG } from './config.js?v=0.3.0';
+import { CONFIG } from './config.js?v=0.4.0';
 
 // ヘ長調のペンタトニック（F G A C D）。ジャストの音は連鎖ごとに1段ずつ上がる
 const PENTA = [0, 2, 4, 7, 9];
@@ -249,6 +249,24 @@ export class AudioEngine {
     for (let k = 0; k < 24; k++) {
       this.noise({ start: t + 0.4 + Math.random() * 1.2, dur: 0.04, gain: 0.08 + Math.random() * 0.06, freq: 1500 + Math.random() * 1500, Q: 2 });
     }
+  }
+
+  // カードパック：封を切る音
+  packTear() {
+    if (!this.ready) return;
+    const t = this.now();
+    this.noise({ start: t, dur: 0.35, gain: 0.3, type: 'bandpass', freq: 1500, freqEnd: 6000, Q: 0.8, attack: 0.01 });
+  }
+
+  // カードパック：めくる音。レア度に応じて3段階に盛り上がる
+  packFlip(rarity = 'normal') {
+    if (!this.ready) return;
+    const t = this.now();
+    this.noise({ start: t, dur: 0.08, gain: 0.2, freq: 3000, Q: 1 });
+    const degs = rarity === 'kimo' ? [0, 2, 4, 5, 7, 9, 10, 12] : rarity === 'rare' ? [2, 4, 7, 9] : [4];
+    degs.forEach((g, k) => this.tone({ type: rarity === 'kimo' ? 'sawtooth' : 'triangle', freq: midiToHz(pentaNote(g + 5)), start: t + 0.05 + k * 0.06, dur: 0.4, gain: rarity === 'normal' ? 0.1 : 0.12, filter: 5000 }));
+    if (rarity !== 'normal') this.noise({ start: t + 0.05, dur: 0.8, gain: rarity === 'kimo' ? 0.16 : 0.1, type: 'highpass', freq: 6000 });
+    if (rarity === 'kimo') this.tone({ type: 'sine', freq: 90, freqEnd: 45, start: t, dur: 0.5, gain: 0.4 });
   }
 
   // ボタン

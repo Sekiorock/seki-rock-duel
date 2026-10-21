@@ -6,7 +6,7 @@
 //   温度 T … 左の温度計の高さと、粒の速さ（√T に比例）と粒の色（熱いほど濃い青）
 //   圧力 P … 壁を押す矢印の長さ、気体の色の濃さ、圧力計の針。粒が壁に当たると光る
 
-import { CONFIG } from './config.js?v=0.3.0';
+import { CONFIG } from './config.js?v=0.4.0';
 
 const NAVY = '#1B2A49';
 const BLUE = '#2F6FED';
@@ -136,6 +136,9 @@ export class BombeView {
   }
 
   setDanger(m) { this.danger = m; }
+
+  // 集めた絵柄を、ボンベの正面にラベルとして貼る（img は画像。null ではがす）
+  setSticker(img) { this.sticker = img || null; }
 
   burst() {
     this.burstAt = performance.now();
@@ -441,6 +444,33 @@ export class BombeView {
     }
     ctx.globalAlpha = 1;
     ctx.restore();
+
+    // 絵柄のラベル（実物のボンベのラベルのように、正面の下のほうに貼る）
+    if (this.sticker && this.sticker.complete !== false && this.sticker.naturalWidth !== 0) {
+      const lw = bw * 0.5;
+      const lh = lw * 1.1;
+      const lx = g.cx - lw / 2;
+      const ly = g.bottom - lh - g.ry * 0.6;
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(lx, ly, lw, lh, 5) : ctx.rect(lx, ly, lw, lh);
+      ctx.fillStyle = WHITE;
+      ctx.fill();
+      ctx.clip();
+      try {
+        // 絵柄（縦長）の真ん中を切り取って貼る
+        const iw = this.sticker.naturalWidth || this.sticker.width;
+        const ih = this.sticker.naturalHeight || this.sticker.height;
+        const sh = iw * (lh / lw);
+        ctx.drawImage(this.sticker, 0, (ih - sh) / 2, iw, sh, lx, ly, lw, lh);
+      } catch (e) { /* 読み込めていない画像は無視 */ }
+      ctx.restore();
+      ctx.strokeStyle = NAVY;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(lx, ly, lw, lh, 5) : ctx.rect(lx, ly, lw, lh);
+      ctx.stroke();
+    }
 
     // 手前の壁の線と底
     ctx.strokeStyle = NAVY;

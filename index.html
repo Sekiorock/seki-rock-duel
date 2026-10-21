@@ -7,7 +7,7 @@
   <meta name="format-detection" content="telephone=no">
   <title>セキオロックデュエル</title>
   <!-- ?v= は版番号。版が変わるたびに必ず新しいファイルを読み込ませるための印 -->
-  <link rel="stylesheet" href="style.css?v=0.3.0">
+  <link rel="stylesheet" href="style.css?v=0.4.0">
   <script>
     // 読み込みに失敗したとき（古いファイルが混ざったときなど）に、白い画面のままにしない
     (function () {
@@ -26,25 +26,88 @@
   <!-- タイトル画面 -->
   <section id="screen-title" class="screen">
     <div class="corner">
-      <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
-      <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+      <button id="rank-chip" class="rank-chip" type="button">
+        <span data-t="rankLabel">段位</span><b id="rank-name">10級</b>
+        <i class="rank-bar"><i id="rank-fill"></i></i>
+      </button>
+      <div class="corner-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+      </div>
     </div>
     <div class="title-wrap">
       <canvas id="title-bombe" class="title-bombe" aria-hidden="true"></canvas>
       <h1 class="title" data-t="title">セキオロックデュエル</h1>
       <p class="title-en" data-t="titleEn">SEKIO ROCK DUEL</p>
-      <p class="tagline" data-t="tagline">カードを組み合わせて、圧力をぴったり合わせろ！</p>
+      <button id="btn-exam-ready" class="exam-ready" type="button" data-t="examReady" hidden></button>
       <div class="menu-buttons">
         <button id="btn-dojo" class="menu-btn primary" type="button">
           <b data-t="dojo">道場</b><small data-t="dojoDesc">危険メーターに追われながら解き続ける</small>
           <em id="dojo-best" class="menu-best"></em>
         </button>
-        <button id="btn-practice" class="menu-btn" type="button">
-          <b data-t="practice">練習室</b><small data-t="practiceDesc">段階を選んで、じっくり解く</small>
+        <div class="menu-grid">
+          <button id="btn-ta" class="menu-btn small" type="button">
+            <b data-t="ta">タイムアタック</b><small data-t="taDesc">60秒で何回ジャストできるか</small>
+          </button>
+          <button id="btn-daily" class="menu-btn small" type="button">
+            <b data-t="daily">今日の5問</b><small id="daily-sub" data-t="dailyDesc">全員が同じ5問</small>
+          </button>
+          <button id="btn-practice" class="menu-btn small" type="button">
+            <b data-t="practice">練習室</b><small data-t="practiceDesc">段階を選んで、じっくり解く</small>
+          </button>
+          <button id="btn-collection" class="menu-btn small" type="button">
+            <b data-t="collection">図鑑</b><small id="collection-sub" data-t="collectionDesc">集めた絵柄を眺める</small>
+            <em id="pack-badge" class="pack-badge" hidden></em>
+          </button>
+        </div>
+        <button id="btn-records" class="menu-btn records" type="button">
+          <b data-t="records">記録</b><small data-t="recordsDesc">段位・熟練度・称号</small>
         </button>
       </div>
     </div>
-    <p id="version" class="version">v0.3.0</p>
+    <p id="version" class="version">v0.4.0</p>
+  </section>
+
+  <!-- 記録：段位、自己ベスト、熟練度マップ、称号 -->
+  <section id="screen-records" class="screen scroll" hidden>
+    <header class="topbar">
+      <button class="sub-btn" type="button" data-t="back" data-go-home>もどる</button>
+      <h2 class="screen-title" data-t="records">記録</h2>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+      </div>
+    </header>
+    <div id="records-body" class="records-body"></div>
+  </section>
+
+  <!-- 図鑑 -->
+  <section id="screen-collection" class="screen scroll" hidden>
+    <header class="topbar">
+      <button class="sub-btn" type="button" data-t="back" data-go-home>もどる</button>
+      <h2 class="screen-title" data-t="collection">図鑑</h2>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+      </div>
+    </header>
+    <p id="collection-count" class="collection-count"></p>
+    <button id="btn-open-pending" class="duel-btn open-pending" type="button" hidden></button>
+    <div id="collection-grid" class="collection-grid"></div>
+  </section>
+
+  <!-- カードパックを開ける -->
+  <section id="screen-pack" class="screen" hidden>
+    <div class="pack-wrap">
+      <h2 class="pack-title" data-t="packTitle"></h2>
+      <p class="pack-hint" data-t="tapToOpen"></p>
+      <div id="pack-cards" class="pack-cards"></div>
+      <p class="pack-free" data-t="packFree"></p>
+    </div>
+    <div class="result-buttons">
+      <button id="btn-pack-all" class="sub-btn" type="button" data-t="openAll"></button>
+      <button id="btn-pack-next" class="duel-btn" type="button" data-t="packNext" hidden></button>
+    </div>
   </section>
 
   <!-- 練習室：段階を選ぶ -->
@@ -75,6 +138,10 @@
       <div class="hud-practice">
         <div class="stat"><span data-t="stageLabel"></span><b id="stage-num">1</b></div>
         <div class="stat"><span data-t="justLabel"></span><b id="just-count" class="num">0</b></div>
+      </div>
+      <div class="hud-generic">
+        <div class="hud-score"><span id="hud-a-label"></span><b id="hud-a" class="num">0</b></div>
+        <div class="hud-score"><span id="hud-b-label"></span><b id="hud-b" class="num">0</b></div>
       </div>
       <div class="hud-dojo">
         <div class="hud-score"><span data-t="scoreLabel"></span><b id="score" class="num">0</b></div>
@@ -125,13 +192,20 @@
       <p class="result-label" data-t="scoreLabel"></p>
       <p id="result-score" class="result-score num">0</p>
       <p id="result-best" class="result-best"></p>
+      <div id="result-exp" class="result-exp" hidden>
+        <div class="result-exp-top"><span data-t="resExp"></span><b id="result-exp-gain" class="num"></b></div>
+        <div class="result-exp-rank"><b id="result-rank"></b><i class="rank-bar big"><i id="result-rank-fill"></i></i></div>
+        <p id="result-rank-note" class="result-rank-note"></p>
+      </div>
       <div id="result-stats" class="result-stats"></div>
+      <div id="result-titles" class="result-titles"></div>
       <div class="result-mistakes">
         <p class="section-label" data-t="resMistakes"></p>
         <div id="result-mistakes"></div>
       </div>
     </div>
     <div class="result-buttons">
+      <button id="btn-open-pack" class="duel-btn" type="button" hidden></button>
       <button id="btn-retry" class="duel-btn" type="button" data-t="retry"></button>
       <button id="btn-result-home" class="sub-btn" type="button" data-t="toHome"></button>
     </div>
@@ -146,6 +220,19 @@
     </div>
   </div>
 
+  <!-- 絵柄の詳しい表示（図鑑） -->
+  <div id="art-detail" class="overlay" hidden>
+    <div class="panel art-panel">
+      <div id="art-big" class="art-big"></div>
+      <h3 id="art-name"></h3>
+      <p id="art-meta" class="art-meta"></p>
+      <button id="btn-set-back" class="sub-btn wide" type="button"></button>
+      <button id="btn-set-bombe" class="sub-btn wide" type="button"></button>
+      <button id="btn-art-close" class="duel-btn" type="button" data-t="close"></button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
   <div id="vignette" class="vignette" aria-hidden="true"></div>
   <div id="flash" class="flash" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
@@ -158,6 +245,6 @@
   </div>
 
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
-  <script type="module" src="src/main.js?v=0.3.0"></script>
+  <script type="module" src="src/main.js?v=0.4.0"></script>
 </body>
 </html>

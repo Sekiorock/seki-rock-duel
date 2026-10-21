@@ -1,10 +1,10 @@
 // 問題の自動生成、解の探索、誤答の推定（仕様書 4.4、4.5）。
 
-import { CONFIG } from './config.js?v=0.3.0';
-import { eq } from './frac.js?v=0.3.0';
+import { CONFIG } from './config.js?v=0.4.0';
+import { eq } from './frac.js?v=0.4.0';
 import {
   vmul, vset, tsetK, tsetC, applySequence, isValidP, isLegalPlay, startState,
-} from './cards.js?v=0.3.0';
+} from './cards.js?v=0.4.0';
 
 // ---- カードを作る ----
 function weightedPick(list, rng) {
@@ -98,6 +98,16 @@ function trapModel(state, cards, target) {
     if (eq(applySequence(state, cards, m).state.P, target)) return m;
   }
   return null;
+}
+
+// 手札の中にある罠の考え違いの種類（熟練度マップで、罠を見抜けたかを数えるのに使う）
+export function trapModelsInHand(state, hand, target) {
+  const found = new Set();
+  forEachPlay(hand, (seq, cards) => {
+    const m = trapModel(state, cards, target);
+    if (m) found.add(m);
+  });
+  return [...found];
 }
 
 export function countTraps(state, hand, target) {
