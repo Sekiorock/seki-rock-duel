@@ -3,7 +3,7 @@
 
 export const CONFIG = {
   // タイトル画面の下に出す版番号（13.3 の付け方に従う）
-  VERSION: 'v0.4.0',
+  VERSION: 'v0.5.0',
 
   // ---- ボンベの状態（4.1） ----
   // 圧力 P は 0.1×10⁵ Pa を 1 とする整数、体積 V は 0.5 L を 1 とする整数、温度 T は K の整数
@@ -169,6 +169,40 @@ export const CONFIG = {
     MIN_TRIES: 5,              // これより少ないときは「—」
     STAR_RATES: [0.5, 0.65, 0.8, 0.9], // 正答率がこれ以上で星 2, 3, 4, 5
     SLOW_MS: 20000,            // 平均時間がこれより長いと星を1つ減らす
+  },
+
+  // ---- CPUの強さ（5.6） ----
+  BOT: {
+    LEVELS: {
+      novice: { SOLVE_MS: [10000, 16000], ACCURACY: 0.7 },   // 見習い
+      regular: { SOLVE_MS: [6000, 11000], ACCURACY: 0.85 },  // 一人前
+      master: { SOLVE_MS: [3000, 7000], ACCURACY: 0.95 },    // 達人
+    },
+    // 問題の段階ごとに、解く時間に掛ける倍率（段階1〜6）
+    // 仕様は「1段階ごとに10%長く」だが、人は2枚・3枚の問題で大きく時間がかかるので、それに合わせた
+    STAGE_FACTOR: [1, 1.35, 1.3, 1.75, 2.1, 2.7],
+  },
+
+  // ---- ストーリー（5.5）。v0.5 は1〜4章。5章以降は v0.6〜v0.8 で追加する ----
+  STORY: {
+    CHAPTERS: [
+      // level・speed：相手の強さ。学びながら勝てるよう、見習いから始めて章ごとに少しずつ速くする
+      { id: 1, char: 'boyle', stages: [1, 2], need: 5, level: 'novice', speed: 0.95, trick: null },
+      { id: 2, char: 'charles', stages: [3], need: 5, level: 'novice', speed: 0.9, trick: 'swap_target', trickMs: 26000 },
+      { id: 3, char: 'kelvin', stages: [4], need: 5, level: 'regular', speed: 1.3, trick: 'frost', trickMs: 22000 },
+      { id: 4, char: 'celsius', stages: [5], need: 7, level: 'regular', speed: 1.2, trick: 'to_celsius', trickMs: 18000 },
+    ],
+    // これから追加する章（単元全体の地図として、章の一覧に表示する）
+    FUTURE: [
+      { id: 5, char: null, ver: 'v0.6', pages: '44-45' },
+      { id: 6, char: 'dalton', ver: 'v0.7', pages: '46-49' },
+      { id: 7, char: 'vdw', ver: 'v0.8', pages: '50-53' },
+      { id: 8, char: 'fahrenheit', ver: 'v0.8', pages: '' },
+    ],
+    STAGE_EVERY: 3,            // ジャスト3回ごとに、その章の次の段階へ
+    RISE_SLOW: 1.6,            // 危険メーターの自然上昇を、道場よりゆっくりにする倍率
+    LOSS_EASE: 0.25,           // 負けるたびに、相手の解く時間を25%ずつ長くする（最大4回分）
+    LOSS_EASE_MAX: 4,
   },
 
   // ---- 音（9章） ----

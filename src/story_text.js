@@ -1,0 +1,338 @@
+// ストーリーの文言（会話・教科書の要点の解説・確認問題）。日本語（ja）と英語（en）。
+// 会話のセリフは1つ20文字以内（8.3）。解説（lesson）は教科書（第3章 気体 p.38〜43）の要点をまとめたもの。
+//
+// コマの形
+//   { who: 'boyle', face: 'normal', text: '…' }                 キャラクターのセリフ
+//   { lesson: '見出し', text: '…', ref: 'p.38', demo: [...] }    解説。demo はボンベの動き（P・V・T の並び）
+//     P は 0.1×10⁵ Pa を 1、V は 0.5 L を 1、T は K で表す（ゲームの中と同じ）
+// 確認問題
+//   { q: '問い', choices: ['正解', 'ちがう', …], answer: 0, explain: '解説', ref: 'p.39 問1' }
+//   choices の並びは画面で毎回シャッフルする
+
+const DEMO = {
+  // ボイルの法則：温度一定で体積 1/2 → 圧力 2倍、1/3 → 3倍
+  boyle: [{ P: 10, V: 12, T: 300 }, { P: 20, V: 6, T: 300 }, { P: 30, V: 4, T: 300 }],
+  // 分子の衝突：体積を半分に
+  collide: [{ P: 10, V: 24, T: 300 }, { P: 20, V: 12, T: 300 }],
+  // シャルルの法則：圧力一定で温めると体積が大きくなる
+  charles: [{ P: 10, V: 12, T: 300 }, { P: 10, V: 16, T: 400 }, { P: 10, V: 18, T: 450 }],
+  // 熱運動：温度が上がると分子が速く動く（圧力一定、体積が増える）
+  motion: [{ P: 10, V: 8, T: 200 }, { P: 10, V: 24, T: 600 }],
+  // 絶対零度へ：圧力一定で冷やしていくと体積が小さくなる
+  zero: [{ P: 10, V: 14.9, T: 373 }, { P: 10, V: 10.9, T: 273 }, { P: 10, V: 6.9, T: 173 }, { P: 10, V: 1.2, T: 30 }],
+  // 絶対温度でのシャルルの法則：T を2倍 → V も2倍
+  charlesK: [{ P: 10, V: 12, T: 300 }, { P: 10, V: 24, T: 600 }],
+  // ボイル・シャルルの法則（図4）：温度一定で圧縮 → 圧力一定で加熱
+  bc: [{ P: 10, V: 12, T: 300 }, { P: 20, V: 6, T: 300 }, { P: 20, V: 12, T: 600 }],
+  // ℃の罠：27℃→327℃は 300 K → 600 K（2倍）
+  trap: [{ P: 10, V: 8, T: 300 }, { P: 10, V: 16, T: 600 }],
+};
+
+const JA = {
+  chapters: {
+    1: {
+      title: 'ボイル：押されたら、押し返す',
+      topic: 'ボイルの法則（pV = 一定）',
+      pages: 'p.38〜39',
+      intro: [
+        { who: 'boyle', face: 'normal', text: 'おれはボイル。気体の精だ' },
+        { who: 'boyle', face: 'smug', text: '押されたら、押し返す！' },
+        { lesson: 'ボイルの法則', ref: 'p.38', demo: DEMO.boyle,
+          text: '温度が一定のとき、一定量の気体の体積 V は圧力 p に反比例する。\npV = 一定（p₁V₁ = p₂V₂）\n体積を 1/2 にすると圧力は 2 倍、1/3 にすると 3 倍。' },
+        { lesson: 'なぜ反比例するの？', ref: 'p.39 図1', demo: DEMO.collide,
+          text: '気体の圧力は、分子が壁にぶつかる回数に比例する。\n体積を 1/2 にすると、単位体積中の分子の数が 2 倍になり、ぶつかる回数も 2 倍。だから圧力も 2 倍になる。' },
+        { who: 'boyle', face: 'sweat', text: 'つ、潰されると汗が…' },
+        { who: 'boyle', face: 'normal', text: '体積カードで勝負だ！' },
+      ],
+      outro: [
+        { who: 'boyle', face: 'sweat', text: 'くっ…押し返せない…' },
+        { who: 'boyle', face: 'normal', text: 'pV は一定。忘れるなよ' },
+        { who: 'boyle', face: 'smug', text: '今日から相棒だ！' },
+      ],
+      lose: { who: 'boyle', face: 'smug', text: 'まだまだ押し返すぞ！' },
+      quiz: [
+        { q: '温度を一定に保ったまま、1.0×10⁵ Pa で 6.0 L の気体を 2.0 L に圧縮した。圧力は何 Pa？', ref: 'p.39 問1(1)',
+          choices: ['3.0×10⁵ Pa', '3.3×10⁴ Pa', '2.0×10⁵ Pa', '1.2×10⁶ Pa'], answer: 0,
+          explain: 'p₁V₁ = p₂V₂ より、1.0×10⁵ × 6.0 = p × 2.0。p = 3.0×10⁵ Pa。体積が 1/3 なので圧力は 3 倍。' },
+        { q: '温度を一定に保ったまま、1.0×10⁵ Pa で 25 mL の気体の圧力を 5.0×10⁴ Pa にした。体積は何 mL？', ref: 'p.39 問1(2)',
+          choices: ['50 mL', '12.5 mL', '25 mL', '100 mL'], answer: 0,
+          explain: '圧力が 1/2 になると体積は 2 倍。1.0×10⁵ × 25 = 5.0×10⁴ × V より V = 50 mL。' },
+        { q: '温度一定で体積を 1/2 にすると、圧力が 2 倍になるのはなぜ？', ref: 'p.39 図1',
+          choices: ['単位体積中の分子の数が 2 倍になり、壁にぶつかる回数が 2 倍になるから', '分子 1 個 1 個が大きくなるから', '分子の速さが 2 倍になるから', '分子の数そのものが 2 倍に増えるから'], answer: 0,
+          explain: '温度が一定なので分子の速さは変わらない。同じ数の分子が半分の空間に入るので、壁にぶつかる回数が 2 倍になる。' },
+      ],
+    },
+    2: {
+      title: 'シャルル：熱くなると、ふくらむ',
+      topic: 'シャルルの法則（体積と温度）',
+      pages: 'p.39〜40, 43',
+      intro: [
+        { who: 'charles', face: 'smug', text: 'やあ、シャルルだよ！' },
+        { who: 'charles', face: 'smug', text: '熱くなると、つい大きくなっちゃう' },
+        { lesson: 'シャルルの法則', ref: 'p.39', demo: DEMO.charles,
+          text: '圧力が一定のとき、一定量の気体の体積は、温度を 1℃ 上げるごとに、0℃ のときの体積の 1/273 ずつ増える。\nV = V₀ + (t/273)V₀' },
+        { lesson: '熱運動と体積', ref: 'p.39 図2', demo: DEMO.motion,
+          text: '温度が高いほど、気体分子の熱運動（平均の速さ）は激しくなる。圧力が一定なら、分子が強く押し広げるので体積が大きくなる。' },
+        { lesson: 'コラム：熱気球', ref: 'p.43', demo: DEMO.charles,
+          text: '球皮の中の空気をバーナーで温めると、シャルルの法則で体積が大きくなる（膨張する）。一定量の気体の密度が小さくなるので、浮力で浮かび上がる。' },
+        { who: 'charles', face: 'normal', text: '温度カードの出番だよ' },
+        { who: 'charles', face: 'normal', text: '温度は K で表すんだ' },
+        { who: 'charles', face: 'smug', text: '目標、こっそり変えちゃう' },
+      ],
+      outro: [
+        { who: 'charles', face: 'sweat', text: 'しぼんじゃった…' },
+        { who: 'charles', face: 'normal', text: '温めると大きくなる、ね' },
+        { who: 'charles', face: 'smug', text: '仲間にしてよ！' },
+      ],
+      lose: { who: 'charles', face: 'smug', text: 'ぷくーっ、ぼくの勝ち！' },
+      quiz: [
+        { q: '圧力一定で、0℃ で体積 V₀ の気体を 30℃ にした。体積は？', ref: 'p.39 (3)式',
+          choices: ['V₀ + (30/273)V₀', '30 V₀', 'V₀ + 30', '(273/30)V₀'], answer: 0,
+          explain: '1℃ 上げるごとに 0℃ の体積の 1/273 ずつ増えるので、30℃ では (30/273)V₀ だけ増える。' },
+        { q: '圧力一定で、0℃ で 273 mL の気体を 100℃ にした。体積は何 mL？', ref: 'p.39',
+          choices: ['373 mL', '100 mL', '273 mL', '546 mL'], answer: 0,
+          explain: '1℃ ごとに 273 × 1/273 = 1 mL ずつ増える。100℃ では 273 + 100 = 373 mL。\n（この「273 + t」が、3章の絶対温度につながる）' },
+        { q: '熱気球が浮かび上がるのはなぜ？', ref: 'p.43 コラム',
+          choices: ['温めた空気が膨張して、密度が小さくなるから', '温めると空気の質量が減るから', '温めると球皮の中の圧力が下がるから', '温めると空気の分子が上向きに動くから'], answer: 0,
+          explain: '温めると体積が大きくなる。質量は同じなので密度が小さくなり、まわりの空気より軽くなって浮力が生じる。' },
+      ],
+    },
+    3: {
+      title: 'ケルビン：ゼロより下は、ない',
+      topic: '絶対零度と絶対温度（V/T = 一定）',
+      pages: 'p.40〜41',
+      intro: [
+        { who: 'kelvin', face: 'normal', text: 'ケルビンだ。' },
+        { who: 'kelvin', face: 'normal', text: 'ゼロより下は、ない。' },
+        { lesson: '絶対零度', ref: 'p.40 図3', demo: DEMO.zero,
+          text: '圧力一定で気体の温度を下げていくと、体積は小さくなっていく。理論上は −273℃ で分子の熱運動が完全に止まり、体積は 0 になる。この最も低い温度を絶対零度という。' },
+        { who: 'kelvin', face: 'normal', text: '熱運動が止まれば、もう冷えない' },
+        { lesson: '絶対温度（K）', ref: 'p.40 (5)式',
+          text: '絶対零度を原点にした温度を絶対温度 T といい、単位はケルビン（K）。目盛りの間隔はセルシウス温度（℃）と同じ。\nT = t + 273\n−273℃ = 0 K、0℃ = 273 K、27℃ = 300 K、100℃ = 373 K' },
+        { lesson: 'シャルルの法則（絶対温度で）', ref: 'p.40 (6)(7)式', demo: DEMO.charlesK,
+          text: '圧力が一定のとき、一定量の気体の体積 V は絶対温度 T に比例する。\nV/T = 一定（V₁/T₁ = V₂/T₂）\nT を 2 倍にすると V も 2 倍。' },
+        { who: 'kelvin', face: 'normal', text: '霜を送る。凍えるな。' },
+      ],
+      outro: [
+        { who: 'kelvin', face: 'sweat', text: '……計算どおりだ。' },
+        { who: 'kelvin', face: 'normal', text: '温度は必ず K で考えろ' },
+        { who: 'kelvin', face: 'normal', text: '次はセルシウス。気をつけろ' },
+      ],
+      lose: { who: 'kelvin', face: 'normal', text: '冷静さが足りない。' },
+      quiz: [
+        { q: '絶対零度は何℃？', ref: 'p.40',
+          choices: ['−273℃', '0℃', '−100℃', '273℃'], answer: 0,
+          explain: '理論上、−273℃ で気体分子の熱運動が止まり、気体の体積が 0 になる。これより低い温度はない。' },
+        { q: '27℃ は絶対温度で何 K？', ref: 'p.40 (5)式',
+          choices: ['300 K', '27 K', '−246 K', '273 K'], answer: 0,
+          explain: 'T = t + 273 = 27 + 273 = 300 K。' },
+        { q: '27℃、1.00×10⁵ Pa で 10.0 L の窒素を、同じ圧力のまま 177℃ にした。体積は何 L？', ref: 'p.41 問2(1)',
+          choices: ['15.0 L', '65.6 L', '6.67 L', '10.0 L'], answer: 0,
+          explain: 'V₁/T₁ = V₂/T₂。27℃ = 300 K、177℃ = 450 K なので、V = 10.0 × 450/300 = 15.0 L。\n（177/27 倍にすると 65.6 L になってしまう。比は K で！）' },
+        { q: '同じ窒素（27℃ で 10.0 L）を、同じ圧力で 18.0 L にするには何℃ にすればよい？', ref: 'p.41 問2(2)',
+          choices: ['267℃', '540℃', '48.6℃', '167℃'], answer: 0,
+          explain: 'T = 300 × 18.0/10.0 = 540 K。℃ に直すと 540 − 273 = 267℃。' },
+      ],
+    },
+    4: {
+      title: 'セルシウス：12倍のわな',
+      topic: 'ボイル・シャルルの法則（pV/T = 一定）',
+      pages: 'p.41〜43',
+      intro: [
+        { who: 'celsius', face: 'smug', text: 'セルシウスだよ〜' },
+        { who: 'celsius', face: 'smug', text: '27℃から327℃？じゃあ12倍だね' },
+        { who: 'kelvin', face: 'normal', text: 'だまされるな。K に直せ' },
+        { lesson: 'ボイル・シャルルの法則', ref: 'p.41 図4・(8)(9)式', demo: DEMO.bc,
+          text: '一定量の気体の体積 V は、圧力 p に反比例し、絶対温度 T に比例する。\npV/T = 一定（p₁V₁/T₁ = p₂V₂/T₂）\n図4：温度一定で圧縮（ボイル）→ 圧力一定で加熱（シャルル）' },
+        { lesson: '℃ の罠', ref: 'p.40', demo: DEMO.trap,
+          text: '27℃ → 327℃ は、絶対温度では 300 K → 600 K。圧力一定なら体積は 2 倍（12 倍ではない）。\n温度の比は、必ず K に直してから。' },
+        { lesson: '実験3：法則を確かめる', ref: 'p.42〜43',
+          text: '注射器を真空容器に入れて圧力を下げると、体積は圧力に反比例して大きくなる（ボイル）。\n注射器を温水・氷水に入れて温度を変えると、体積は絶対温度に比例して変わる（シャルル）。グラフを延ばすと、体積 0 の温度（絶対零度）が見えてくる。' },
+        { who: 'celsius', face: 'smug', text: 'Kカード、℃に変えちゃうよ' },
+      ],
+      outro: [
+        { who: 'celsius', face: 'whiteeye', text: 'ば、ばれてた…！' },
+        { who: 'celsius', face: 'sweat', text: 'Kに直されたら勝てないよ' },
+        { who: 'celsius', face: 'smug', text: '仲間になってあげる' },
+        { who: 'kelvin', face: 'normal', text: '次は物質量 n の世界だ' },
+      ],
+      lose: { who: 'celsius', face: 'smug', text: '12倍だと思った？ふふ' },
+      quiz: [
+        { q: '27℃、1.0×10⁵ Pa で 60 L の気体を、77℃、2.5×10⁵ Pa にした。体積は何 L？', ref: 'p.42 例題1',
+          choices: ['28 L', '24 L', '68 L', '1.8×10² L'], answer: 0,
+          explain: 'p₁V₁/T₁ = p₂V₂/T₂ より、1.0×10⁵ × 60/300 = 2.5×10⁵ × V/350。V = 28 L。\n（温度を無視すると 24 L、℃ のままだと 68 L になる）' },
+        { q: '27℃、2.0×10⁵ Pa で 5.0 L の水素を、87℃ で 3.0 L にした。圧力は何 Pa？', ref: 'p.42 類題1',
+          choices: ['4.0×10⁵ Pa', '3.3×10⁵ Pa', '1.1×10⁶ Pa', '1.4×10⁵ Pa'], answer: 0,
+          explain: '2.0×10⁵ × 5.0/300 = p × 3.0/360 より、p = 4.0×10⁵ Pa。' },
+        { q: '一定量の気体の絶対温度を 2 倍、圧力を 3 倍にすると、体積は何倍？', ref: 'p.43 学んだことを説明してみよう1',
+          choices: ['2/3 倍', '6 倍', '3/2 倍', '1/6 倍'], answer: 0,
+          explain: 'V = k′T/p なので、T が 2 倍で 2 倍、p が 3 倍で 1/3 倍。合わせて 2/3 倍。' },
+        { q: '27℃ の気体を、圧力一定で 327℃ にした。体積は何倍？', ref: 'p.40',
+          choices: ['2 倍', '12 倍', '1/2 倍', '約 1.1 倍'], answer: 0,
+          explain: '300 K → 600 K で絶対温度が 2 倍なので、体積も 2 倍。℃ の数字のまま比べてはいけない。' },
+      ],
+    },
+  },
+  // これから追加する章（単元全体の地図）
+  future: {
+    5: { title: '状態方程式', topic: 'pV = nRT・気体定数・分子量の求め方', pages: 'p.44〜45' },
+    6: { title: 'ドルトン：混ぜれば、もっと面白い', topic: '分圧・全圧・モル分率・平均分子量・水上置換', pages: 'p.46〜49' },
+    7: { title: 'ファンデルワールス：理想通りにはいかない', topic: '実在気体と理想気体のずれ（Z = pV/nRT）', pages: 'p.50〜53' },
+    8: { title: '隠し章：華氏ではどうかな？', topic: '℉カード（教科書の範囲外のおまけ）', pages: '' },
+  },
+};
+
+const EN = {
+  chapters: {
+    1: {
+      title: 'Boyle: Push Me, I Push Back',
+      topic: "Boyle's law (pV = constant)",
+      pages: 'pp.38–39',
+      intro: [
+        { who: 'boyle', face: 'normal', text: "I'm Boyle, a gas spirit." },
+        { who: 'boyle', face: 'smug', text: 'Push me, I push back!' },
+        { lesson: "Boyle's law", ref: 'p.38', demo: DEMO.boyle,
+          text: 'At constant temperature, the volume V of a fixed amount of gas is inversely proportional to its pressure p.\npV = constant (p₁V₁ = p₂V₂)\nHalve the volume → double the pressure; a third → triple.' },
+        { lesson: 'Why inverse?', ref: 'p.39 Fig.1', demo: DEMO.collide,
+          text: 'Gas pressure is proportional to how often molecules hit the walls.\nHalve the volume and there are twice as many molecules per unit volume, so twice as many hits — and twice the pressure.' },
+        { who: 'boyle', face: 'sweat', text: 'Squeeze me and I sweat…' },
+        { who: 'boyle', face: 'normal', text: 'Duel me with volume cards!' },
+      ],
+      outro: [
+        { who: 'boyle', face: 'sweat', text: "Ugh… can't push back…" },
+        { who: 'boyle', face: 'normal', text: "pV stays constant. Don't forget." },
+        { who: 'boyle', face: 'smug', text: "From today, we're partners!" },
+      ],
+      lose: { who: 'boyle', face: 'smug', text: 'I can still push back!' },
+      quiz: [
+        { q: 'At constant temperature, a gas at 1.0×10⁵ Pa and 6.0 L is compressed to 2.0 L. What is the pressure?', ref: 'p.39 Q1(1)',
+          choices: ['3.0×10⁵ Pa', '3.3×10⁴ Pa', '2.0×10⁵ Pa', '1.2×10⁶ Pa'], answer: 0,
+          explain: 'p₁V₁ = p₂V₂: 1.0×10⁵ × 6.0 = p × 2.0, so p = 3.0×10⁵ Pa. A third of the volume → three times the pressure.' },
+        { q: 'At constant temperature, a gas at 1.0×10⁵ Pa and 25 mL is brought to 5.0×10⁴ Pa. What is the volume?', ref: 'p.39 Q1(2)',
+          choices: ['50 mL', '12.5 mL', '25 mL', '100 mL'], answer: 0,
+          explain: 'Half the pressure → twice the volume. 1.0×10⁵ × 25 = 5.0×10⁴ × V, so V = 50 mL.' },
+        { q: 'At constant temperature, why does halving the volume double the pressure?', ref: 'p.39 Fig.1',
+          choices: ['Twice as many molecules per unit volume, so twice as many wall hits', 'Each molecule gets bigger', 'Molecules move twice as fast', 'The number of molecules doubles'], answer: 0,
+          explain: 'Temperature is constant, so the molecules keep the same speed. The same molecules in half the space hit the walls twice as often.' },
+      ],
+    },
+    2: {
+      title: 'Charles: Warm Me Up, I Swell',
+      topic: "Charles's law (volume and temperature)",
+      pages: 'pp.39–40, 43',
+      intro: [
+        { who: 'charles', face: 'smug', text: "Hi, I'm Charles!" },
+        { who: 'charles', face: 'smug', text: 'When I heat up, I swell up!' },
+        { lesson: "Charles's law", ref: 'p.39', demo: DEMO.charles,
+          text: 'At constant pressure, the volume of a fixed amount of gas grows by 1/273 of its 0 °C volume for every 1 °C rise.\nV = V₀ + (t/273)V₀' },
+        { lesson: 'Thermal motion and volume', ref: 'p.39 Fig.2', demo: DEMO.motion,
+          text: 'The hotter the gas, the faster its molecules move. At constant pressure they push outward harder, so the volume grows.' },
+        { lesson: 'Column: hot-air balloons', ref: 'p.43', demo: DEMO.charles,
+          text: "Heating the air in the envelope makes it expand (Charles's law). The same amount of air takes up more space, so its density drops and buoyancy lifts the balloon." },
+        { who: 'charles', face: 'normal', text: 'Time for temperature cards' },
+        { who: 'charles', face: 'normal', text: 'We measure them in K' },
+        { who: 'charles', face: 'smug', text: "I'll sneakily swap targets" },
+      ],
+      outro: [
+        { who: 'charles', face: 'sweat', text: "I've deflated…" },
+        { who: 'charles', face: 'normal', text: 'Warm it, it grows. Got it?' },
+        { who: 'charles', face: 'smug', text: 'Let me join you!' },
+      ],
+      lose: { who: 'charles', face: 'smug', text: 'Puff! I win!' },
+      quiz: [
+        { q: 'At constant pressure, a gas with volume V₀ at 0 °C is warmed to 30 °C. What is its volume?', ref: 'p.39 eq.(3)',
+          choices: ['V₀ + (30/273)V₀', '30 V₀', 'V₀ + 30', '(273/30)V₀'], answer: 0,
+          explain: 'Each 1 °C adds 1/273 of the 0 °C volume, so 30 °C adds (30/273)V₀.' },
+        { q: 'At constant pressure, 273 mL of gas at 0 °C is warmed to 100 °C. What is its volume?', ref: 'p.39',
+          choices: ['373 mL', '100 mL', '273 mL', '546 mL'], answer: 0,
+          explain: 'Each 1 °C adds 273 × 1/273 = 1 mL, so at 100 °C the volume is 273 + 100 = 373 mL.\n(This "273 + t" leads to absolute temperature in Chapter 3.)' },
+        { q: 'Why does a hot-air balloon rise?', ref: 'p.43 Column',
+          choices: ['The warmed air expands and becomes less dense', 'Warming makes the air lose mass', 'Warming lowers the pressure inside', 'Warm air molecules all move upward'], answer: 0,
+          explain: 'Warming increases the volume. The mass stays the same, so the density drops below the surrounding air and buoyancy appears.' },
+      ],
+    },
+    3: {
+      title: 'Kelvin: Nothing Below Zero',
+      topic: 'Absolute zero and absolute temperature (V/T = constant)',
+      pages: 'pp.40–41',
+      intro: [
+        { who: 'kelvin', face: 'normal', text: 'Kelvin.' },
+        { who: 'kelvin', face: 'normal', text: 'There is nothing below zero.' },
+        { lesson: 'Absolute zero', ref: 'p.40 Fig.3', demo: DEMO.zero,
+          text: 'Cool a gas at constant pressure and its volume shrinks. In theory, at −273 °C the molecules stop moving and the volume reaches 0. This lowest possible temperature is absolute zero.' },
+        { who: 'kelvin', face: 'normal', text: "Once motion stops, it can't get colder." },
+        { lesson: 'Absolute temperature (K)', ref: 'p.40 eq.(5)',
+          text: 'Temperature measured from absolute zero is absolute temperature T, in kelvin (K). Each step is the same size as a Celsius degree.\nT = t + 273\n−273 °C = 0 K, 0 °C = 273 K, 27 °C = 300 K, 100 °C = 373 K' },
+        { lesson: "Charles's law in kelvin", ref: 'p.40 eq.(6)(7)', demo: DEMO.charlesK,
+          text: 'At constant pressure, the volume V of a fixed amount of gas is proportional to absolute temperature T.\nV/T = constant (V₁/T₁ = V₂/T₂)\nDouble T and V doubles.' },
+        { who: 'kelvin', face: 'normal', text: "I'll send frost. Don't freeze." },
+      ],
+      outro: [
+        { who: 'kelvin', face: 'sweat', text: '…As calculated.' },
+        { who: 'kelvin', face: 'normal', text: 'Always think in kelvin.' },
+        { who: 'kelvin', face: 'normal', text: 'Celsius is next. Be careful.' },
+      ],
+      lose: { who: 'kelvin', face: 'normal', text: 'You need to stay cool.' },
+      quiz: [
+        { q: 'What is absolute zero in °C?', ref: 'p.40',
+          choices: ['−273 °C', '0 °C', '−100 °C', '273 °C'], answer: 0,
+          explain: 'In theory, at −273 °C molecular motion stops and the gas volume becomes 0. Nothing is colder.' },
+        { q: 'What is 27 °C in kelvin?', ref: 'p.40 eq.(5)',
+          choices: ['300 K', '27 K', '−246 K', '273 K'], answer: 0,
+          explain: 'T = t + 273 = 27 + 273 = 300 K.' },
+        { q: '10.0 L of nitrogen at 27 °C and 1.00×10⁵ Pa is heated to 177 °C at the same pressure. What is the volume?', ref: 'p.41 Q2(1)',
+          choices: ['15.0 L', '65.6 L', '6.67 L', '10.0 L'], answer: 0,
+          explain: 'V₁/T₁ = V₂/T₂. 27 °C = 300 K and 177 °C = 450 K, so V = 10.0 × 450/300 = 15.0 L.\n(Multiplying by 177/27 gives 65.6 L — always use K!)' },
+        { q: 'To make the same nitrogen (10.0 L at 27 °C) 18.0 L at the same pressure, what temperature is needed?', ref: 'p.41 Q2(2)',
+          choices: ['267 °C', '540 °C', '48.6 °C', '167 °C'], answer: 0,
+          explain: 'T = 300 × 18.0/10.0 = 540 K, which is 540 − 273 = 267 °C.' },
+      ],
+    },
+    4: {
+      title: "Celsius: The 12× Trap",
+      topic: "Boyle–Charles law (pV/T = constant)",
+      pages: 'pp.41–43',
+      intro: [
+        { who: 'celsius', face: 'smug', text: 'Celsius here~' },
+        { who: 'celsius', face: 'smug', text: '27 °C to 327 °C? That’s 12×!' },
+        { who: 'kelvin', face: 'normal', text: "Don't be fooled. Use K." },
+        { lesson: 'Boyle–Charles law', ref: 'p.41 Fig.4, eq.(8)(9)', demo: DEMO.bc,
+          text: 'The volume V of a fixed amount of gas is inversely proportional to p and proportional to absolute temperature T.\npV/T = constant (p₁V₁/T₁ = p₂V₂/T₂)\nFig.4: compress at constant T (Boyle) → heat at constant p (Charles)' },
+        { lesson: 'The °C trap', ref: 'p.40', demo: DEMO.trap,
+          text: '27 °C → 327 °C is 300 K → 600 K. At constant pressure the volume doubles (not 12×).\nAlways convert to K before taking temperature ratios.' },
+        { lesson: 'Experiment 3: test the laws', ref: 'pp.42–43',
+          text: "Put a syringe in a vacuum container and lower the pressure: the volume grows in inverse proportion (Boyle).\nPut it in warm or ice water: the volume changes in proportion to absolute temperature (Charles). Extend the graph and the temperature of zero volume — absolute zero — appears." },
+        { who: 'celsius', face: 'smug', text: "I'll turn your K cards into °C" },
+      ],
+      outro: [
+        { who: 'celsius', face: 'whiteeye', text: 'Y-you saw through it…!' },
+        { who: 'celsius', face: 'sweat', text: "Kelvin always beats me…" },
+        { who: 'celsius', face: 'smug', text: "Fine, I'll join you." },
+        { who: 'kelvin', face: 'normal', text: 'Next: the world of moles, n.' },
+      ],
+      lose: { who: 'celsius', face: 'smug', text: 'Thought it was 12×? Hehe.' },
+      quiz: [
+        { q: '60 L of gas at 27 °C and 1.0×10⁵ Pa is brought to 77 °C and 2.5×10⁵ Pa. What is the volume?', ref: 'p.42 Example 1',
+          choices: ['28 L', '24 L', '68 L', '1.8×10² L'], answer: 0,
+          explain: 'p₁V₁/T₁ = p₂V₂/T₂: 1.0×10⁵ × 60/300 = 2.5×10⁵ × V/350, so V = 28 L.\n(Ignoring temperature gives 24 L; using °C gives 68 L.)' },
+        { q: '5.0 L of hydrogen at 27 °C and 2.0×10⁵ Pa is brought to 87 °C and 3.0 L. What is the pressure?', ref: 'p.42 Exercise 1',
+          choices: ['4.0×10⁵ Pa', '3.3×10⁵ Pa', '1.1×10⁶ Pa', '1.4×10⁵ Pa'], answer: 0,
+          explain: '2.0×10⁵ × 5.0/300 = p × 3.0/360, so p = 4.0×10⁵ Pa.' },
+        { q: 'For a fixed amount of gas, absolute temperature is doubled and pressure tripled. How does the volume change?', ref: 'p.43 Explain 1',
+          choices: ['×2/3', '×6', '×3/2', '×1/6'], answer: 0,
+          explain: 'V = k′T/p: doubling T gives ×2, tripling p gives ×1/3. Together, ×2/3.' },
+        { q: 'A gas at 27 °C is heated to 327 °C at constant pressure. How does the volume change?', ref: 'p.40',
+          choices: ['×2', '×12', '×1/2', 'about ×1.1'], answer: 0,
+          explain: '300 K → 600 K doubles the absolute temperature, so the volume doubles. Never compare raw °C numbers.' },
+      ],
+    },
+  },
+  future: {
+    5: { title: 'The Equation of State', topic: 'pV = nRT, the gas constant, finding molar mass', pages: 'pp.44–45' },
+    6: { title: 'Dalton: Mixing Makes It Fun', topic: 'Partial and total pressure, mole fraction, mean molar mass, collecting over water', pages: 'pp.46–49' },
+    7: { title: 'van der Waals: Not So Ideal', topic: 'How real gases differ from ideal gases (Z = pV/nRT)', pages: 'pp.50–53' },
+    8: { title: 'Hidden: How About Fahrenheit?', topic: '°F cards (a bonus beyond the textbook)', pages: '' },
+  },
+};
+
+export const STORY_TEXT = { ja: JA, en: EN };

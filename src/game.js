@@ -1,9 +1,9 @@
 // 1人分の盤面の進行（選ぶ、出す、判定）。ひとりでも対戦でも同じものを使う。
 
-import { CONFIG } from './config.js?v=0.4.0';
-import { eq } from './frac.js?v=0.4.0';
-import { startState, applySequence, isTempCard } from './cards.js?v=0.4.0';
-import { generateProblem, rerollHand, estimateMistake } from './puzzle.js?v=0.4.0';
+import { CONFIG } from './config.js?v=0.5.0';
+import { eq } from './frac.js?v=0.5.0';
+import { startState, applySequence, isTempCard } from './cards.js?v=0.5.0';
+import { generateProblem, rerollHand, estimateMistake, enumerateSolutions } from './puzzle.js?v=0.5.0';
 
 let uidCounter = 1;
 const withUid = (c) => (c && !c.uid ? { ...c, uid: uidCounter++ } : c);
@@ -33,6 +33,14 @@ export class Board {
     return { stage: this.stage, rng: this.rng, preferModel: this.preferModel(), ...extra };
   }
 
+  // 手札を書き換えたあと（おじゃまカードなど）、解の一覧を作り直す
+  refreshSolutions() {
+    const r = enumerateSolutions(this.state, this.hand, this.target);
+    this.solutions = r.solutions;
+    this.minCount = r.minCount;
+    return r.solutions.length > 0;
+  }
+
   _setProblem(p) {
     this.dealt++;
     this.state = p.state;
@@ -57,6 +65,7 @@ export class Board {
   place(handIdx, slot = null) {
     const card = this.hand[handIdx];
     if (!card || this.isOnField(handIdx)) return 'none';
+    if (card.type === 'frost') return 'frost';
     if (isTempCard(card) && this.fieldCards().filter(isTempCard).length >= CONFIG.MAX_TEMP_CARDS) {
       return 'temp_limit';
     }
@@ -106,7 +115,8 @@ export class Board {
   // ジャストの確定：状態を引き継ぎ、使ったカードを捨てて補充し、新しい目標を出す
   commitJust(result) {
     this.justCount++;
-    const keep = this.hand.map((c, i) => (result.used.includes(i) ? null : c));
+    // 使ったカードは捨て札に。霜カードは次のジャストで溶けて、通常のカードに入れ替わる（6.4）
+    const keep = this.hand.map((c, i) => (result.used.includes(i) || (c && c.type === 'frost') ? null : c));
     this._setProblem(generateProblem(this._genArgs({ state: result.after, keep })));
   }
 

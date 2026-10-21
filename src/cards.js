@@ -1,8 +1,8 @@
 // カードの種類と、ボンベへの効果の計算。
 // 状態は { P, V, T } で、どれも分数（frac.js）。
 
-import { frac, mul, div, isInt } from './frac.js?v=0.4.0';
-import { CONFIG } from './config.js?v=0.4.0';
+import { frac, mul, div, isInt } from './frac.js?v=0.5.0';
+import { CONFIG } from './config.js?v=0.5.0';
 
 // ---- カードを作る ----
 export const vmul = (num, den) => ({ type: 'vmul', num, den });   // 体積を num/den 倍
@@ -10,7 +10,9 @@ export const vset = (v) => ({ type: 'vset', v });                 // 体積を v
 export const tsetK = (k) => ({ type: 'tset_k', k });              // 温度を k [K] にする
 export const tsetC = (k) => ({ type: 'tset_c', k });              // 温度を k [K] にする（℃で表記）
 
+export const frost = () => ({ type: 'frost' });                    // おじゃまカード：霜（場に置けない）
 export const isTempCard = (c) => !!c && CONFIG.TEMP_TYPES.includes(c.type);
+export const isPlayable = (c) => !!c && c.type !== 'frost';
 export const celsiusOf = (k) => k - CONFIG.KELVIN_OFFSET;
 
 export function startState() {
@@ -74,6 +76,8 @@ export function cardLines(card) {
       const c = celsiusOf(card.k);
       return { top: 'T →', bottom: `${c < 0 ? '−' + Math.abs(c) : c}℃` };
     }
+    case 'frost':
+      return { top: '❄', bottom: '' };
     default:
       return { top: '?', bottom: '' };
   }

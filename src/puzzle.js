@@ -1,10 +1,10 @@
 // 問題の自動生成、解の探索、誤答の推定（仕様書 4.4、4.5）。
 
-import { CONFIG } from './config.js?v=0.4.0';
-import { eq } from './frac.js?v=0.4.0';
+import { CONFIG } from './config.js?v=0.5.0';
+import { eq } from './frac.js?v=0.5.0';
 import {
   vmul, vset, tsetK, tsetC, applySequence, isValidP, isLegalPlay, startState,
-} from './cards.js?v=0.4.0';
+} from './cards.js?v=0.5.0';
 
 // ---- カードを作る ----
 function weightedPick(list, rng) {
@@ -47,7 +47,7 @@ function cardPool(stage) {
 // 手札（null は空き）から、1〜FIELD_SIZE 枚の並び（温度カードは1枚まで）をすべて訪ねる
 function forEachPlay(hand, visit, mustInclude = -1) {
   const idx = [];
-  hand.forEach((c, i) => { if (c) idx.push(i); });
+  hand.forEach((c, i) => { if (c && c.type !== 'frost') idx.push(i); }); // 霜カードは出せない
   const seq = [];
   const rec = () => {
     if (seq.length > 0 && (mustInclude < 0 || seq.includes(mustInclude))) {

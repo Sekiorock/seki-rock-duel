@@ -2,12 +2,14 @@
 // v0.3：道場。v0.4：タイムアタック、今日の5問、昇段試験、段位と経験値、カードパック、称号、熟練度。
 // どのモードも同じ形（board, clock, over, tick, onJust, onMiss, onReroll, summary）で、画面側から同じように扱える。
 
-import { CONFIG } from './config.js?v=0.4.0';
-import { Board, Vitals } from './game.js?v=0.4.0';
-import { generateProblem } from './puzzle.js?v=0.4.0';
-import { createRng } from './rng.js?v=0.4.0';
-import { frac } from './frac.js?v=0.4.0';
-import { ARTS } from './chars.js?v=0.4.0';
+import { CONFIG } from './config.js?v=0.5.0';
+import { Board, Vitals } from './game.js?v=0.5.0';
+import { generateProblem } from './puzzle.js?v=0.5.0';
+import { createRng } from './rng.js?v=0.5.0';
+import { frac } from './frac.js?v=0.5.0';
+import { ARTS } from './chars.js?v=0.5.0';
+import { Bot } from './bots.js?v=0.5.0';
+import { TRICKS } from './battle.js?v=0.5.0';
 
 export class Dojo {
   constructor({ rng, preferModel }) {
@@ -449,4 +451,109 @@ export function masteryStars(e) {
   M.STAR_RATES.forEach((r) => { if (rate >= r) stars++; });
   if (e.ms / e.n > M.SLOW_MS) stars = Math.max(1, stars - 1);
   return stars;
+}
+
+// ---------- ストーリー：キャラクターとの1対1のデュエル（先に need 回ジャストした方が勝ち） ----------
+export const chapterOf = (id) => CONFIG.STORY.CHAPTERS.find((c) => c.id === id);
+
+export class StoryDuel {
+  constructor({ chapter, rng, losses = 0 }) {
+    const S = CONFIG.STORY;
+    this.kind = 'story';
+    this.canReroll = true;
+    this.ch = chapterOf(chapter);
+    this.rng = rng;
+    this.need = this.ch.need;
+    this.board = new Board({ stage: this.ch.stages[0], rng, preferModel: () => null });
+    this.vitals = new Vitals(CONFIG.DOJO);
+    const ease = Math.pow(1 + S.LOSS_EASE, Math.min(losses, S.LOSS_EASE_MAX));
+    this.bot = new Bot({ level: this.ch.level, speed: this.ch.speed * ease, rng });
+    this.bot.setStage(this.board.stage);
+    this.clock = 0;
+    this.justs = 0;
+    this.misses = 0;
+    this.mistakes = {};
+    this.trickAcc = 0;
+    this.trickDue = false;
+    this.over = false;
+    this.won = false;
+  }
+
+  get stage() { return this.board.stage; }
+
+  riseMs() {
+    return (CONFIG.DOJO.RISE_MS_BY_STAGE[this.stage] || 2000) * CONFIG.STORY.RISE_SLOW;
+  }
+
+  tick(dt) {
+    if (this.over) return [];
+    this.clock += dt;
+    const events = this.vitals.tick(this.clock, dt, this.riseMs());
+    const b = this.bot.tick(dt);
+    if (b) events.push(b === 'just' ? 'bot_just' : 'bot_miss');
+    if (this.bot.justs >= this.need) {
+      this.over = true;
+      this.won = false;
+      events.push('lost');
+    }
+    if (this.ch.trick) {
+      this.trickAcc += dt;
+      if (this.trickAcc >= this.ch.trickMs) {
+        this.trickAcc = 0;
+        this.trickDue = true;
+        events.push('trick');
+      }
+    }
+    if (this.vitals.isBurst()) {
+      this.over = true;
+      this.won = false;
+    }
+    return events;
+  }
+
+  // 相手の技を使う（演出中でないときに画面側から呼ぶ）
+  applyTrick() {
+    if (!this.trickDue || this.over) return null;
+    this.trickDue = false;
+    return TRICKS[this.ch.trick](this.board, this.rng);
+  }
+
+  onJust(result, at = this.clock) {
+    const v = this.vitals.onJust(result, at, this.board.minCount);
+    this.justs++;
+    const S = CONFIG.STORY;
+    const stages = this.ch.stages;
+    const before = this.board.stage;
+    this.board.stage = stages[Math.min(stages.length - 1, Math.floor(this.justs / S.STAGE_EVERY))];
+    this.bot.setStage(this.board.stage);
+    this.board.commitJust(result);
+    this.vitals.onNewTarget(this.clock);
+    if (this.justs >= this.need) {
+      this.over = true;
+      this.won = true;
+    }
+    return { ...v, points: 0, stageUp: this.board.stage > before };
+  }
+
+  onMiss(result) {
+    this.vitals.onMiss();
+    this.misses++;
+    if (result.mistake) this.mistakes[result.mistake] = (this.mistakes[result.mistake] || 0) + 1;
+    this.board.commitMiss();
+    if (this.vitals.isBurst()) this.over = true;
+  }
+
+  onReroll() {
+    this.vitals.onReroll();
+    this.board.reroll();
+    if (this.vitals.isBurst()) this.over = true;
+  }
+
+  summary() {
+    return {
+      chapter: this.ch.id, won: this.won, justs: this.justs, botJusts: this.bot.justs, need: this.need,
+      misses: this.misses, timeMs: this.clock, maxChain: this.vitals.maxChain, mistakes: { ...this.mistakes },
+      burst: this.vitals.isBurst(),
+    };
+  }
 }

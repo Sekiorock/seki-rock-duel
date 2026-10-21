@@ -6,7 +6,8 @@
 //   温度 T … 左の温度計の高さと、粒の速さ（√T に比例）と粒の色（熱いほど濃い青）
 //   圧力 P … 壁を押す矢印の長さ、気体の色の濃さ、圧力計の針。粒が壁に当たると光る
 
-import { CONFIG } from './config.js?v=0.4.0';
+import { CONFIG } from './config.js?v=0.5.0';
+import { drawChar } from './chars.js?v=0.5.0';
 
 const NAVY = '#1B2A49';
 const BLUE = '#2F6FED';
@@ -136,6 +137,19 @@ export class BombeView {
   }
 
   setDanger(m) { this.danger = m; }
+
+  // ボンベの顔（仲間にしたキャラクター）。表情は、ジャスト・ハズレ・危険・破裂で変わる（8.3）
+  setFace(id) { this.face = id || null; }
+  setExpr(expr, ms = 0) {
+    this.expr = expr;
+    this.exprUntil = ms ? performance.now() + ms : 0;
+  }
+  _faceExpr(now) {
+    if (this.burstAt) return 'ascend';
+    if (this.exprUntil && now < this.exprUntil) return this.expr;
+    if (this.danger >= 90) return 'whiteeye';
+    return 'normal';
+  }
 
   // 集めた絵柄を、ボンベの正面にラベルとして貼る（img は画像。null ではがす）
   setSticker(img) { this.sticker = img || null; }
@@ -295,6 +309,13 @@ export class BombeView {
     this._drawThermometer(g, T);
     if (this.ghost) this._drawThermometer(g, this.ghost.T, true);
     if (this.showGauge) this._drawGauge(g, P);
+    if (this.face) {
+      // 圧力計の下（タイトルではボンベの右）に、キャラクターがのぞいている
+      const size = this.showGauge ? Math.min(h * 0.36, w * 0.22) : Math.min(h * 0.46, w * 0.36);
+      const fx = this.showGauge ? g.gx : g.cx + g.bodyW * 0.95;
+      const fy = this.showGauge ? h - size * 0.5 - 2 : g.bottom - size * 0.5;
+      drawChar(ctx, this.face, this._faceExpr(now), fx, fy, size, now / 1000);
+    }
     if (this.burstAt) this._drawBurst(g, now);
   }
 
@@ -742,11 +763,39 @@ export class FxLayer {
     }
   }
 
+  // 仲間のキャラクターが、次々と画面に飛び込んでくる（超フィーバー・昇段・章クリア）
+  cheer(ids) {
+    if (!ids || !ids.length) return;
+    this._size();
+    this.sprites = this.sprites || [];
+    ids.forEach((id, i) => {
+      const fromLeft = i % 2 === 0;
+      this.sprites.push({
+        id, t0: performance.now() + i * 260, dur: 1700,
+        x0: fromLeft ? -60 : this.w + 60, x1: fromLeft ? this.w + 60 : -60,
+        y: this.h * (0.35 + (i % 3) * 0.13), size: Math.min(110, this.w * 0.26),
+      });
+    });
+    if (!this.running) {
+      this.running = true;
+      this.last = performance.now();
+      requestAnimationFrame((t) => this._loop(t));
+    }
+  }
+
   _loop(now) {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     const { ctx } = this;
     ctx.clearRect(0, 0, this.w, this.h);
+    this.sprites = (this.sprites || []).filter((sp) => now - sp.t0 < sp.dur);
+    for (const sp of this.sprites) {
+      const k = (now - sp.t0) / sp.dur;
+      if (k < 0) continue;
+      const x = sp.x0 + (sp.x1 - sp.x0) * k;
+      const y = sp.y - Math.abs(Math.sin(k * Math.PI * 3)) * 60; // 弾みながら横切る
+      drawChar(ctx, sp.id, 'smug', x, y, sp.size, now / 1000);
+    }
     for (const p of this.pieces) {
       p.x += p.vx * dt + Math.sin(now / 300 + p.rot) * 0.6;
       p.y += p.vy * dt;
@@ -762,7 +811,7 @@ export class FxLayer {
       ctx.restore();
     }
     this.pieces = this.pieces.filter((p) => p.y < this.h + 30);
-    if (this.pieces.length) requestAnimationFrame((t) => this._loop(t));
+    if (this.pieces.length || this.sprites.length) requestAnimationFrame((t) => this._loop(t));
     else {
       ctx.clearRect(0, 0, this.w, this.h);
       this.running = false;

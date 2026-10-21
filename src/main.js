@@ -1,26 +1,27 @@
 // 全体の進行（画面の切り替え）と、盤面の表示・タッチ操作。
 // 練習室・道場・タイムアタック・今日の5問・昇段試験は、同じプレイ画面を使う（run.kind で切り替える）。
 
-import { CONFIG } from './config.js?v=0.4.0';
-import { TEXT, formatP, formatV, formatT, setLang, getLang, LANGS } from './text.js?v=0.4.0';
-import { toNumber } from './frac.js?v=0.4.0';
-import { createRng, randomSeed } from './rng.js?v=0.4.0';
-import { cardLines, isTempCard } from './cards.js?v=0.4.0';
-import { trapModelsInHand } from './puzzle.js?v=0.4.0';
+import { CONFIG } from './config.js?v=0.5.0';
+import { TEXT, formatP, formatV, formatT, setLang, getLang, LANGS } from './text.js?v=0.5.0';
+import { toNumber } from './frac.js?v=0.5.0';
+import { createRng, randomSeed } from './rng.js?v=0.5.0';
+import { cardLines, isTempCard } from './cards.js?v=0.5.0';
+import { trapModelsInHand } from './puzzle.js?v=0.5.0';
 import {
-  Dojo, PracticeRun, TimeAttack, DailyRun, ExamRun, dateKey,
+  Dojo, PracticeRun, TimeAttack, DailyRun, ExamRun, StoryDuel, chapterOf, dateKey,
   rankProgress, examAvailable, dojoExp, taExp, dailyExp, rollPack, earnedTitles, TITLES,
   addMastery, masteryStars, MASTERY_CARDS,
-} from './solo.js?v=0.4.0';
-import { BombeView, FxLayer } from './render.js?v=0.4.0';
-import { AudioEngine } from './audio.js?v=0.4.0';
-import { Music } from './music.js?v=0.4.0';
-import { ARTS, ART_BY_ID, artURL } from './chars.js?v=0.4.0';
+} from './solo.js?v=0.5.0';
+import { BombeView, FxLayer } from './render.js?v=0.5.0';
+import { AudioEngine } from './audio.js?v=0.5.0';
+import { Music } from './music.js?v=0.5.0';
+import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=0.5.0';
+import { STORY_TEXT } from './story_text.js?v=0.5.0';
 import {
   migrate, loadSettings, saveSettings, recordMistake, favoriteMistake,
   loadRecords, saveRecords, loadProfile, saveProfile, loadCollection, saveCollection,
-  loadTitles, saveTitles, loadMastery, saveMastery,
-} from './storage.js?v=0.4.0';
+  loadTitles, saveTitles, loadMastery, saveMastery, loadStory, saveStory,
+} from './storage.js?v=0.5.0';
 
 const $ = (id) => document.getElementById(id);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -167,6 +168,25 @@ function applySkins() {
   } else stickerImg = null;
   titleBombe.setSticker(stickerImg);
   if (view) view.setSticker(stickerImg);
+  // ボンベの顔（仲間にしたキャラクターだけ）
+  const prof = loadProfile();
+  const face = loadStory().friends.includes(prof.char) ? prof.char : null;
+  titleBombe.setFace(face);
+  if (view) view.setFace(face);
+}
+
+// キャラクターを canvas に描く（小さな絵に使う）
+function paintChar(canvas, id, expr = 'normal') {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const r = canvas.getBoundingClientRect();
+  const w = r.width || canvas.width;
+  const h = r.height || canvas.height;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  if (id) drawChar(ctx, id, expr, w / 2, h / 2 + h * 0.04, h * 0.86, 0);
 }
 
 // ---------- タイトル画面 ----------
@@ -180,14 +200,18 @@ function renderTitleScreen() {
   $('rank-name').textContent = TEXT.ranks[prof.rank];
   $('rank-fill').style.width = `${rankProgress(prof).ratio * 100}%`;
   $('btn-exam-ready').hidden = !examAvailable(prof);
-  // タイムアタックと今日の5問は、道場で1回遊ぶと解放（5.1）
+  // タイムアタックは道場で1回遊ぶと解放（5.1）。今日の5問は、道場1回 または ストーリー2章クリアで解放
   const unlocked = r.dojoPlays >= 1;
+  const dailyOpen = dailyUnlocked();
   $('btn-ta').classList.toggle('locked', !unlocked);
-  $('btn-daily').classList.toggle('locked', !unlocked);
+  $('btn-daily').classList.toggle('locked', !dailyOpen);
   $('btn-ta').querySelector('small').textContent = unlocked ? TEXT.taDesc : TEXT.locked;
   const today = r.daily[dateKey()];
-  $('daily-sub').textContent = !unlocked ? TEXT.locked
+  $('daily-sub').textContent = !dailyOpen ? TEXT.locked
     : today ? TEXT.dailyRecord(today.cards, TEXT.timeFmt(today.timeMs)) : TEXT.dailyDesc;
+  const st = loadStory();
+  const cleared = CONFIG.STORY.CHAPTERS.filter((c) => st.cleared[c.id]).length;
+  $('story-sub').textContent = cleared ? `${TEXT.chapterCleared} ${cleared}/${CONFIG.STORY.CHAPTERS.length}` : TEXT.storyDesc;
   $('pack-badge').hidden = !(col.pending > 0);
   $('pack-badge').textContent = String(col.pending);
   $('collection-sub').textContent = col.pending > 0 ? TEXT.packsWaiting(col.pending) : TEXT.collectionDesc;
@@ -195,7 +219,11 @@ function renderTitleScreen() {
 
 pressable($('btn-dojo'), () => startRun('dojo'));
 pressable($('btn-ta'), () => { if (loadRecords().dojoPlays >= 1) startRun('ta'); else toast(TEXT.locked); });
-pressable($('btn-daily'), () => { if (loadRecords().dojoPlays >= 1) startRun('daily'); else toast(TEXT.locked); });
+pressable($('btn-daily'), () => { if (dailyUnlocked()) startRun('daily'); else toast(TEXT.locked); });
+pressable($('btn-story'), () => { renderStoryMap(); show('screen-story'); });
+function dailyUnlocked() {
+  return loadRecords().dojoPlays >= 1 || !!loadStory().cleared[2];
+}
 pressable($('btn-practice'), () => show('screen-select'));
 pressable($('btn-collection'), () => { renderCollection(); show('screen-collection'); });
 pressable($('btn-records'), () => { renderRecords(); show('screen-records'); });
@@ -236,9 +264,18 @@ let lastTick = 0;
 let lastResult = null;
 let targetWall = 0;   // 今の目標が出た時刻（熟練度の平均時間に使う）
 let seenCards = new Set();
+let oppExpr = 'normal';
+let oppExprTimer = null;
+function setOppExpr(expr, ms = 1400) {
+  if (!run || run.kind !== 'story') return;
+  oppExpr = expr;
+  paintChar($('vs-face'), run.ch.char, expr);
+  clearTimeout(oppExprTimer);
+  if (ms) oppExprTimer = setTimeout(() => { if (run && run.kind === 'story') paintChar($('vs-face'), run.ch.char, 'normal'); }, ms);
+}
 
 const prefer = () => favoriteMistake(CONFIG.MISTAKE_MODELS);
-const SONG_OF = { practice: 'practice', dojo: 'dojo', ta: 'battle', daily: 'practice', exam: 'battle' };
+const SONG_OF = { practice: 'practice', dojo: 'dojo', ta: 'battle', daily: 'practice', exam: 'battle', story: 'battle' };
 
 function startRun(kind, opts = {}) {
   const rng = createRng(randomSeed());
@@ -246,6 +283,7 @@ function startRun(kind, opts = {}) {
   else if (kind === 'ta') run = new TimeAttack({ rng, preferModel: prefer });
   else if (kind === 'daily') run = new DailyRun({ key: dateKey() });
   else if (kind === 'exam') run = new ExamRun({ rank: loadProfile().rank, rng });
+  else if (kind === 'story') run = new StoryDuel({ chapter: opts.chapter, rng, losses: loadStory().losses[opts.chapter] || 0 });
   else run = new PracticeRun({ stage: opts.stage || 1, rng, preferModel: prefer });
   board = run.board;
   enterPlay();
@@ -261,7 +299,8 @@ function enterPlay() {
   if (!view) view = new BombeView($('bombe'));
   else view.resize();
   if (!fx) fx = new FxLayer($('fx'));
-  view.setSticker(stickerImg);
+  applySkins();
+  view.setExpr('normal');
   view.clearBurst();
   view.setShadow(null);
   view.setDanger(0);
@@ -281,7 +320,15 @@ function enterPlay() {
   updateHud();
   view.set(num(board.state), toNumber(board.target));
   targetWall = performance.now();
-  showMessage(run.kind === 'exam' ? TEXT.examRule(TEXT.ranks[run.targetRank], run.stage, CONFIG.RANK.EXAM_JUSTS) : TEXT.handHint, 'soft');
+  showMessage(run.kind === 'exam' ? TEXT.examRule(TEXT.ranks[run.targetRank], run.stage, CONFIG.RANK.EXAM_JUSTS)
+    : run.kind === 'story' ? TEXT.duelRule(run.need) : TEXT.handHint, 'soft');
+  // ストーリー：相手の顔と進み具合
+  $('vs-bar').hidden = run.kind !== 'story';
+  if (run.kind === 'story') {
+    $('vs-name').textContent = TEXT.charNames[run.ch.char];
+    oppExpr = 'normal';
+    requestAnimationFrame(() => paintChar($('vs-face'), run.ch.char, 'normal'));
+  }
   music.setState({ chain: 0 });
   music.setHeartbeat(false);
 }
@@ -336,6 +383,20 @@ function tick() {
     setFeverLook(false, false);
     music.setState({ chain: run.vitals.chain });
   }
+  if (run.kind === 'story') {
+    const name = TEXT.charNames[run.ch.char];
+    if (events.includes('bot_just')) {
+      setOppExpr('smug');
+      audio.deny();
+      replay($('vs-opp-n'), 'bump');
+      if (!busy) showMessage(TEXT.oppJust(name), 'show', 1500);
+    }
+    if (events.includes('bot_miss')) {
+      setOppExpr('sweat');
+      if (!busy) showMessage(TEXT.oppMiss(name), 'show', 1500);
+    }
+    if (run.trickDue && !busy) useTrick();
+  }
   updateHud();
   if (run.over && !busy) endOfRun();
 }
@@ -343,8 +404,22 @@ function tick() {
 // モードが終わったとき（破裂、時間切れ、5問クリア、試験の合否）
 function endOfRun() {
   if (!run) return;
-  if (run.kind === 'dojo') doBurst();
+  if (run.kind === 'dojo' || (run.kind === 'story' && run.vitals.isBurst())) doBurst();
   else finishRun(true);
+}
+
+// ストーリーの相手の技（おじゃまカード・目標の書き換え）
+function useTrick() {
+  const r = run.applyTrick();
+  if (!r) return;
+  setOppExpr('smug');
+  audio.feverStart(false);
+  renderAll();
+  view.set(num(board.state), toNumber(board.target));
+  if (r.type === 'swap_target') { replay(document.querySelector('.target-card'), 'pop'); targetWall = performance.now(); }
+  const msg = TEXT.trickMsg[r.type](TEXT.charNames[run.ch.char]);
+  showBanner(msg);
+  showMessage(r.type === 'frost' ? TEXT.frostHint : msg, 'show', CONFIG.ANIM.NOTICE_MS);
 }
 
 function updateHud() {
@@ -373,6 +448,22 @@ function updateHud() {
     $('hud-a').textContent = `${Math.min(run.index + 1, CONFIG.DAILY.COUNT)}/${CONFIG.DAILY.COUNT}`;
     $('hud-b-label').textContent = TEXT.dailyTime;
     $('hud-b').textContent = TEXT.timeFmt(run.clock);
+  } else if (k === 'story') {
+    const v = run.vitals;
+    $('hud-a-label').textContent = TEXT.stageLabel;
+    $('hud-a').textContent = String(board.stage);
+    $('hud-b-label').textContent = TEXT.chainLabel;
+    $('hud-b').textContent = String(v.chain);
+    $('danger-fill').style.height = `${v.meter}%`;
+    $('danger-num').textContent = String(Math.round(v.meter));
+    $('danger').classList.toggle('warn', v.meter >= CONFIG.DOJO.WARN_AT);
+    setDangerLook(v.meter);
+    view.setDanger(v.meter);
+    music.setHeartbeat(v.meter >= CONFIG.DOJO.WARN_AT);
+    $('vs-opp').style.width = `${(run.bot.justs / run.need) * 100}%`;
+    $('vs-me').style.width = `${(run.justs / run.need) * 100}%`;
+    $('vs-opp-n').textContent = String(run.bot.justs);
+    $('vs-me-n').textContent = String(run.justs);
   } else if (k === 'exam') {
     $('hud-a-label').textContent = TEXT.examHud;
     $('hud-a').textContent = `${run.count}/${CONFIG.RANK.EXAM_JUSTS}`;
@@ -436,6 +527,7 @@ function renderTargetLabel() {
   const k = run ? run.kind : 'practice';
   if (k === 'dojo' || k === 'ta' || k === 'daily') t = TEXT.targetStage(board.stage);
   else if (k === 'exam') t = TEXT.examTitleHud(TEXT.ranks[run.targetRank]);
+  else if (k === 'story') t = `${TEXT.chapterN(run.ch.id)} · ${TEXT.targetStage(board.stage)}`;
   else if (settings.assist) t = `${TEXT.targetLabel} · ${TEXT.assistOn}`;
   $('target-label').textContent = t;
 }
@@ -482,7 +574,8 @@ function hideHint() {
 function showBanner(text, big = false) {
   const b = $('banner');
   b.textContent = text;
-  b.className = 'banner' + (big ? ' big' : '');
+  // 長い文（相手の技など）は、小さめの文字で折り返す
+  b.className = 'banner' + (big ? ' big' : '') + ([...text].length > 12 ? ' long' : '');
   void b.offsetWidth;
   b.classList.add('show');
 }
@@ -531,7 +624,7 @@ function cardHTML(card) {
 
 function makeCard(card) {
   const el = document.createElement('div');
-  el.className = 'card' + (isTempCard(card) ? ' temp' : '');
+  el.className = 'card' + (isTempCard(card) ? ' temp' : '') + (card.type === 'frost' ? ' frost-card' : '');
   el.innerHTML = cardHTML(card);
   el.setAttribute('role', 'button');
   return el;
@@ -648,6 +741,9 @@ function attachDrag(el, idx) {
     } else if (res === 'temp_limit') {
       audio.deny();
       showMessage(TEXT.tempLimit, 'show', CONFIG.ANIM.NOTICE_MS);
+    } else if (res === 'frost') {
+      audio.deny();
+      showMessage(TEXT.frostHint, 'show', CONFIG.ANIM.NOTICE_MS);
     }
   };
   el.addEventListener('pointerup', (e) => finish(e, false));
@@ -772,6 +868,7 @@ $('btn-duel').addEventListener('click', async () => {
 
   busy = false;
   if (run && run.over) endOfRun();
+  else if (run && run.kind === 'story' && run.trickDue) useTrick();
 });
 
 async function onJustShown(result, pressAt, snap) {
@@ -782,6 +879,8 @@ async function onJustShown(result, pressAt, snap) {
   recordDuel(result, snap, info);
   stamp(TEXT.just, '');
   view.ring();
+  view.setExpr('smug', 1300);
+  if (kind === 'story') setOppExpr('sweat');
   audio.just(info.chain, info);
   vibrate(CONFIG.VIBRATE_JUST);
   flash(!settings.muted);
@@ -804,6 +903,7 @@ async function onJustShown(result, pressAt, snap) {
       setFeverLook(true, true);
       showBanner(TEXT.superFever, true);
       fx.confetti(110);
+      fx.cheer(loadStory().friends); // 仲間のキャラクターが応援に飛び込む
       audio.feverStart(true);
     } else if (info.feverStarted) {
       setFeverLook(true, false);
@@ -840,6 +940,8 @@ async function onMissShown(result, snap) {
   const A = CONFIG.ANIM;
   // ハズレ：ボンベがよろけ、考え違いの一言を目標カードの下に出す。カードは手札へ、ボンベは元へ
   view.shake();
+  view.setExpr('sweat', 1600);
+  if (run.kind === 'story') setOppExpr('smug');
   stamp(TEXT.miss, 'miss');
   audio.miss();
   music.onMiss();
@@ -852,7 +954,7 @@ async function onMissShown(result, snap) {
   else music.setState({ chain: 0 });
   updateHud();
   await wait(A.MISS_HOLD_MS);
-  if (run.over && run.kind === 'exam') return; // 試験はハズレ1回で不合格
+  if (run.over && (run.kind === 'exam' || run.kind === 'story')) return; // 試験はハズレ1回で不合格、ストーリーは破裂で負け
   clearStamps();
   renderState(board.state);
   await view.animateTo(num(board.state), A.MISS_BACK_MS);
@@ -941,6 +1043,22 @@ function finishRun(natural) {
       res.examPassed = true;
     }
   }
+  // ストーリー：勝てば章クリア・仲間・ごほうびのパック、負ければ次は相手がゆっくりに
+  let story = null;
+  if (kind === 'story') {
+    story = loadStory();
+    const id = sum.chapter;
+    if (sum.won) {
+      res.firstClear = !story.cleared[id];
+      story.cleared[id] = true;
+      const char = chapterOf(id).char;
+      if (!story.friends.includes(char)) { story.friends.push(char); res.friendNew = char; }
+      if (res.firstClear) { col.pending += 1; res.packEarned = true; }
+    } else if (natural) {
+      story.losses[id] = (story.losses[id] || 0) + 1;
+    }
+    saveStory(story);
+  }
   prof.exp += res.exp;
   res.rankAfter = prof.rank;
   saveRecords(rec);
@@ -950,6 +1068,17 @@ function finishRun(natural) {
   lastResult = res;
   setFeverLook(false, false);
   if (view) view.clearBurst();
+  if (kind === 'story' && sum.won) {
+    // 勝利 → 章の終わりの会話 → 確認問題（説明してみよう） → 結果
+    const ct = storyText().chapters[sum.chapter];
+    playTalk(sum.chapter, ct.outro, () => startQuiz(sum.chapter, () => showResultScreen(res)));
+    return;
+  }
+  showResultScreen(res);
+}
+
+function showResultScreen(res) {
+  const { kind, sum } = res;
   renderResult(res);
   show('screen-result');
   // 数字を数え上げる
@@ -964,8 +1093,13 @@ function finishRun(natural) {
     };
     requestAnimationFrame(step);
   }
-  if ((res.newBest || res.examPassed || (kind === 'daily' && sum.cleared)) && audio.ready) setTimeout(() => audio.fanfare(), 600);
-  if (res.examPassed) setTimeout(() => fx.confetti(90, ['#FFFFFF', '#DCE7FD', '#2F6FED']), 300);
+  const celebrate = res.newBest || res.examPassed || (kind === 'daily' && sum.cleared) || (kind === 'story' && sum.won);
+  if (celebrate && audio.ready) setTimeout(() => audio.fanfare(), 600);
+  if (res.examPassed || (kind === 'story' && sum.won)) {
+    setTimeout(() => fx.confetti(90, ['#FFFFFF', '#DCE7FD', '#2F6FED']), 300);
+    setTimeout(() => fx.cheer(loadStory().friends), 500); // 仲間が次々と飛び込む
+  }
+  if (res.friendNew) requestAnimationFrame(() => paintChar($('friend-canvas'), res.friendNew, 'smug'));
 }
 
 function renderResult(res) {
@@ -1014,19 +1148,28 @@ function renderResult(res) {
     big = sum.passed ? name : `${sum.count}/${CONFIG.RANK.EXAM_JUSTS}`;
     bestLine = sum.passed ? TEXT.examPassDetail(name) : TEXT.examFailDetail(sum.count, CONFIG.RANK.EXAM_JUSTS);
     stats = [[TEXT.resTime, TEXT.timeFmt(sum.timeMs)]];
+  } else if (kind === 'story') {
+    const ct = storyText().chapters[sum.chapter];
+    title = sum.won ? TEXT.storyWin : TEXT.storyLose;
+    label = `${TEXT.chapterN(sum.chapter)}  ${TEXT.you} − ${TEXT.charNames[chapterOf(sum.chapter).char]}`;
+    big = `${sum.justs} − ${sum.botJusts}`;
+    const q = loadStory().quiz[sum.chapter];
+    if (sum.won) bestLine = q ? TEXT.quizFirstTry(q.first, q.total) : '';
+    else bestLine = `「${ct.lose.text}」 ${sum.burst ? TEXT.storyBurst : TEXT.storyLoseNote}`;
+    stats = [[TEXT.resTime, TEXT.timeFmt(sum.timeMs)], [TEXT.resMaxChain, sum.maxChain], [TEXT.resMisses, sum.misses]];
   }
   $('result-title').textContent = title;
   document.querySelector('#screen-result .result-label').textContent = label;
   $('result-score').textContent = big;
   $('result-score').classList.toggle('word', kind === 'exam' && sum.passed);
   const best = $('result-best');
-  best.className = 'result-best' + (res.newBest || res.examPassed ? ' new' : '');
+  best.className = 'result-best' + (res.newBest || res.examPassed || (kind === 'story' && sum.won) ? ' new' : '');
   best.textContent = bestLine;
   $('result-stats').innerHTML = stats.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
   $('result-stats').style.gridTemplateColumns = stats.length < 3 ? `repeat(${stats.length}, 1fr)` : '';
 
   // 経験値と段位
-  const showExp = kind !== 'exam';
+  const showExp = kind !== 'exam' && kind !== 'story';
   $('result-exp').hidden = !showExp;
   if (showExp) {
     $('result-exp-gain').textContent = TEXT.expGain(res.exp);
@@ -1035,6 +1178,12 @@ function renderResult(res) {
     fill.style.width = '0%';
     requestAnimationFrame(() => { fill.style.width = `${rankProgress(prof).ratio * 100}%`; });
     $('result-rank-note').textContent = examAvailable(prof) ? TEXT.examReady : '';
+  }
+  // 仲間になった
+  $('result-friend').hidden = !res.friendNew;
+  if (res.friendNew) {
+    $('friend-text').textContent = TEXT.friendJoin(TEXT.charNames[res.friendNew]);
+    $('btn-use-face').textContent = TEXT.useAsFace;
   }
   // 新しい称号
   $('result-titles').innerHTML = (res.titles || []).map((id) => `<div>${esc(TEXT.newTitle(TEXT.titleNames[id]))}</div>`).join('');
@@ -1048,15 +1197,32 @@ function renderResult(res) {
   // ボタン
   const col = loadCollection();
   const packBtn = $('btn-open-pack');
-  packBtn.hidden = !(col.pending > 0 && kind === 'dojo');
+  packBtn.hidden = !(col.pending > 0 && (kind === 'dojo' || kind === 'story'));
   packBtn.textContent = col.pending > 1 ? `${TEXT.openPack}（${col.pending}）` : TEXT.openPack;
   const retry = $('btn-retry');
   retry.hidden = kind === 'exam' && sum.passed;
-  retry.textContent = kind === 'exam' ? TEXT.examRetry : TEXT.retry;
+  retry.textContent = kind === 'exam' ? TEXT.examRetry
+    : kind === 'story' ? (sum.won ? TEXT.toStory : TEXT.storyRetry) : TEXT.retry;
   retry.className = packBtn.hidden ? 'duel-btn' : 'sub-btn';
 }
 
-pressable($('btn-retry'), () => { if (lastResult) startRun(lastResult.kind); });
+pressable($('btn-retry'), () => {
+  if (!lastResult) return;
+  if (lastResult.kind === 'story') {
+    if (lastResult.sum.won) { stopSong(); renderStoryMap(); show('screen-story'); }
+    else startRun('story', { chapter: lastResult.sum.chapter });
+    return;
+  }
+  startRun(lastResult.kind);
+});
+pressable($('btn-use-face'), () => {
+  if (!lastResult || !lastResult.friendNew) return;
+  const prof = loadProfile();
+  prof.char = lastResult.friendNew;
+  saveProfile(prof);
+  applySkins();
+  toast(TEXT.friendNote);
+});
 pressable($('btn-result-home'), () => goHome());
 pressable($('btn-open-pack'), () => openPack('result'));
 
@@ -1242,6 +1408,249 @@ function renderRecords() {
   if (eb) pressable(eb, () => startRun('exam'));
 }
 
+
+// =========================================================
+// ストーリー（5.5）：章の一覧 → 会話と解説 → デュエル → 会話 → 確認問題 → 結果
+// =========================================================
+const storyText = () => STORY_TEXT[getLang()] || STORY_TEXT.ja;
+
+function chapterOpen(id, st) {
+  return id === 1 || !!st.cleared[id - 1];
+}
+
+function renderStoryMap() {
+  const st = loadStory();
+  const prof = loadProfile();
+  const T = storyText();
+  // ボンベの顔
+  const fp = $('face-picker');
+  if (st.friends.length) {
+    fp.innerHTML = `<span class="fp-label">${TEXT.faceTitle}</span>`
+      + `<button class="face-opt${!prof.char ? ' on' : ''}" type="button" data-face="">${TEXT.faceNone}</button>`
+      + st.friends.map((id) => `<button class="face-opt${prof.char === id ? ' on' : ''}" type="button" data-face="${id}" aria-label="${esc(TEXT.charNames[id])}"><canvas></canvas></button>`).join('');
+    fp.hidden = false;
+    fp.querySelectorAll('[data-face]').forEach((b) => {
+      const id = b.dataset.face;
+      if (id) requestAnimationFrame(() => paintChar(b.querySelector('canvas'), id, 'normal'));
+      b.addEventListener('click', () => {
+        const p = loadProfile();
+        p.char = id || null;
+        saveProfile(p);
+        applySkins();
+        audio.click();
+        renderStoryMap();
+      });
+    });
+  } else {
+    fp.innerHTML = '';
+    fp.hidden = true;
+  }
+  // 章（今ある章 ＋ これから追加する章 ＝ 単元全体の地図）
+  const rows = CONFIG.STORY.CHAPTERS.map((c) => {
+    const t = T.chapters[c.id];
+    const open = chapterOpen(c.id, st);
+    const done = !!st.cleared[c.id];
+    const q = st.quiz[c.id];
+    const tags = [
+      `<span class="tag">${TEXT.lessonRef(t.pages)}</span>`,
+      done ? `<span class="tag done">${TEXT.chapterCleared}</span>` : open ? `<span class="tag new">${TEXT.chapterNew}</span>` : '',
+      q ? `<span class="tag">${TEXT.quizScore(q.first, q.total)}</span>` : '',
+    ].join('');
+    return `<button class="chapter${open ? '' : ' locked'}" type="button" data-ch="${c.id}" ${open ? '' : 'aria-disabled="true"'}>
+      <canvas data-char="${c.char}"></canvas>
+      <span><span class="ch-no">${TEXT.chapterN(c.id)}</span><b>${esc(t.title)}</b><small>${esc(t.topic)}</small>
+      <span class="ch-tags">${open ? tags : `<span class="tag">${TEXT.chapterLocked}</span>`}</span></span></button>`;
+  });
+  const future = CONFIG.STORY.FUTURE.map((f) => {
+    const t = T.future[f.id];
+    const no = f.id === 8 ? TEXT.hiddenChapter : TEXT.chapterN(f.id);
+    return `<div class="chapter future"><canvas data-char="${f.char || ''}"></canvas>
+      <span><span class="ch-no">${no}</span><b>${esc(t.title)}</b><small>${esc(t.topic)}</small>
+      <span class="ch-tags">${t.pages ? `<span class="tag">${TEXT.lessonRef(t.pages)}</span>` : ''}<span class="tag">${TEXT.chapterComing(f.ver)}</span></span></span></div>`;
+  });
+  $('chapter-list').innerHTML = rows.join('') + future.join('');
+  requestAnimationFrame(() => {
+    $('chapter-list').querySelectorAll('canvas').forEach((cv) => {
+      const id = cv.dataset.char;
+      if (id) paintChar(cv, id, 'normal');
+    });
+  });
+  $('chapter-list').querySelectorAll('[data-ch]').forEach((b) => {
+    pressable(b, () => {
+      const id = Number(b.dataset.ch);
+      if (!chapterOpen(id, loadStory())) { toast(TEXT.chapterLocked); return; }
+      startChapter(id);
+    });
+  });
+}
+
+function startChapter(id) {
+  const ct = storyText().chapters[id];
+  playSong('practice');
+  playTalk(id, ct.intro, () => {
+    const st = loadStory();
+    st.seen[id] = true;
+    saveStory(st);
+    stopSong();
+    startRun('story', { chapter: id });
+  });
+}
+
+// ---------- 会話と解説 ----------
+let talk = null;
+let lessonView = null;
+let demoTimer = null;
+
+function playTalk(chapterId, panels, onDone) {
+  talk = { chapterId, panels, i: 0, onDone };
+  show('screen-talk');
+  $('talk-chapter').textContent = `${TEXT.chapterN(chapterId)}　${storyText().chapters[chapterId].title}`;
+  renderPanel();
+}
+
+function fmtDemo(st) {
+  const t = Math.round(st.T);
+  return `P ${(st.P / 10).toFixed(1)}×10⁵ Pa　V ${(st.V / 2).toFixed(1)} L　T ${t} K（${t - 273}℃）`;
+}
+
+function renderPanel() {
+  clearInterval(demoTimer);
+  const p = talk.panels[talk.i];
+  const lesson = $('lesson');
+  const bubble = $('bubble');
+  if (p.lesson) {
+    lesson.hidden = false;
+    $('talk-char').style.visibility = 'hidden';
+    bubble.hidden = true;
+    $('lesson-ref').textContent = p.ref ? TEXT.lessonRef(p.ref) : '';
+    $('lesson-title').textContent = p.lesson;
+    $('lesson-text').textContent = p.text;
+    lesson.classList.toggle('nodemo', !p.demo);
+    let tapHint = lesson.querySelector('.bubble-next');
+    if (!tapHint) {
+      tapHint = document.createElement('span');
+      tapHint.className = 'bubble-next';
+      lesson.appendChild(tapHint);
+    }
+    tapHint.textContent = TEXT.tapNext;
+    if (p.demo) {
+      if (!lessonView) lessonView = new BombeView($('lesson-bombe'));
+      lessonView.resize();
+      lessonView.setFace(null);
+      lessonView.set(p.demo[0], null);
+      $('lesson-state').textContent = fmtDemo(p.demo[0]);
+      // ボンベの動き：1段ずつ動かし、最後まで行ったら最初に戻して繰り返す
+      let k = 0;
+      demoTimer = setInterval(() => {
+        k = (k + 1) % (p.demo.length + 1);
+        if (k === p.demo.length) { lessonView.set(p.demo[0], null); $('lesson-state').textContent = fmtDemo(p.demo[0]); return; }
+        lessonView.animateTo(p.demo[k], 900);
+        $('lesson-state').textContent = fmtDemo(p.demo[k]);
+      }, 1700);
+    }
+  } else {
+    lesson.hidden = true;
+    bubble.hidden = false;
+    const cv = $('talk-char');
+    cv.style.visibility = 'visible';
+    paintChar(cv, p.who, p.face || 'normal');
+    $('bubble-name').textContent = TEXT.charNames[p.who] || '';
+    $('bubble-text').textContent = p.text;
+    replay(bubble, 'snap');
+  }
+}
+
+function nextPanel() {
+  if (!talk) return;
+  audio.click();
+  talk.i++;
+  if (talk.i >= talk.panels.length) return endTalk();
+  renderPanel();
+}
+function endTalk() {
+  clearInterval(demoTimer);
+  const done = talk && talk.onDone;
+  talk = null;
+  if (done) done();
+}
+$('talk-stage').addEventListener('click', nextPanel);
+$('bubble').addEventListener('click', nextPanel);
+$('btn-skip').addEventListener('click', (e) => { e.stopPropagation(); endTalk(); });
+
+// ---------- 確認問題（説明してみよう） ----------
+let quiz = null;
+function startQuiz(chapterId, onDone) {
+  const items = storyText().chapters[chapterId].quiz;
+  quiz = { chapterId, items, i: 0, first: 0, tries: 0, onDone };
+  show('screen-quiz');
+  playSong('practice');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const it = quiz.items[quiz.i];
+  quiz.tries = 0;
+  $('quiz-count').textContent = `${quiz.i + 1} / ${quiz.items.length}`;
+  $('quiz-ref').textContent = it.ref ? TEXT.lessonRef(it.ref) : '';
+  $('quiz-q').textContent = it.q;
+  $('quiz-feedback').hidden = true;
+  $('btn-quiz-next').hidden = true;
+  // 選択肢の並びは毎回シャッフルする
+  const order = createRng(randomSeed()).shuffle(it.choices.map((_, k) => k));
+  const box = $('quiz-choices');
+  box.innerHTML = '';
+  order.forEach((k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'quiz-choice';
+    b.textContent = it.choices[k];
+    b.addEventListener('click', () => answer(k, b));
+    box.appendChild(b);
+  });
+  $('screen-quiz').scrollTop = 0;
+}
+
+function answer(k, btn) {
+  const it = quiz.items[quiz.i];
+  quiz.tries++;
+  const fb = $('quiz-feedback');
+  if (k === it.answer) {
+    if (quiz.tries === 1) quiz.first++;
+    btn.classList.add('right');
+    $('quiz-choices').querySelectorAll('button').forEach((b) => { b.disabled = true; });
+    $('quiz-verdict').textContent = TEXT.quizCorrect;
+    $('quiz-explain').textContent = it.explain;
+    fb.hidden = false;
+    audio.just(quiz.i + 1);
+    vibrate(CONFIG.VIBRATE_JUST);
+    const last = quiz.i === quiz.items.length - 1;
+    $('btn-quiz-next').textContent = last ? TEXT.quizDone : TEXT.quizNext;
+    $('btn-quiz-next').hidden = false;
+  } else {
+    btn.classList.add('wrong');
+    btn.disabled = true;
+    audio.miss();
+    $('quiz-verdict').textContent = TEXT.quizWrong;
+    // 2回まちがえたら、解説を見せる
+    $('quiz-explain').textContent = quiz.tries >= 2 ? it.explain : '';
+    fb.hidden = false;
+  }
+}
+
+pressable($('btn-quiz-next'), () => {
+  if (!quiz) return;
+  quiz.i++;
+  if (quiz.i < quiz.items.length) return renderQuestion();
+  const st = loadStory();
+  const old = st.quiz[quiz.chapterId];
+  if (!old || quiz.first > old.first) st.quiz[quiz.chapterId] = { first: quiz.first, total: quiz.items.length };
+  saveStory(st);
+  const done = quiz.onDone;
+  quiz = null;
+  stopSong();
+  if (done) done();
+});
+
 // ---------- 起動 ----------
 applySkins();
 applyTexts();
@@ -1259,5 +1668,8 @@ if (new URLSearchParams(location.search).has('debug')) {
     startGame: (n) => startRun('practice', { stage: n }),
     startDojo: () => startRun('dojo'),
     startRun,
+    startChapter,
+    get talk() { return talk; },
+    get quiz() { return quiz; },
   };
 }

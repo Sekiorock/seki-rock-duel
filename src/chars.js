@@ -1,6 +1,6 @@
-// 絵柄の描画（Canvas で手描き）。画像ファイルは使わない。色は白・ネイビー・青の濃淡だけ。
+// キャラクターと絵柄の描画（Canvas で手描き）。画像ファイルは使わない。色は白・ネイビー・青の濃淡だけ。
 // v0.4：カードパックの絵柄（気体・器具・グラフのモチーフ）。
-// v0.5 で、ここにキャラクター（7人の気体の精）の描画と表情を足し、絵柄にもキャラクターを加える。
+// v0.5：キャラクター（7人の気体の精）と5つの表情。パックの絵柄にもキャラクターを加える。
 
 const NAVY = '#1B2A49';
 const BLUE = '#2F6FED';
@@ -32,7 +32,17 @@ export const ARTS = [
   { id: 'just_stamp', rarity: 'rare', ja: 'JUST! の瞬間', en: 'The JUST! Moment' },
   { id: 'fever', rarity: 'rare', ja: 'フィーバー', en: 'Fever' },
   { id: 'chain', rarity: 'rare', ja: '連鎖の輪', en: 'Chain Rings' },
+  { id: 'char_boyle', rarity: 'rare', ja: 'ボイル', en: 'Boyle', char: 'boyle', expr: 'normal' },
+  { id: 'char_charles', rarity: 'rare', ja: 'シャルル', en: 'Charles', char: 'charles', expr: 'smug' },
+  { id: 'char_kelvin', rarity: 'rare', ja: 'ケルビン', en: 'Kelvin', char: 'kelvin', expr: 'normal' },
+  { id: 'char_celsius', rarity: 'rare', ja: 'セルシウス', en: 'Celsius', char: 'celsius', expr: 'smug' },
+  { id: 'char_vdw', rarity: 'rare', ja: 'ファンデルワールス', en: 'van der Waals', char: 'vdw', expr: 'normal' },
+  { id: 'char_fahrenheit', rarity: 'rare', ja: 'ファーレンハイト', en: 'Fahrenheit', char: 'fahrenheit', expr: 'smug' },
+  { id: 'char_dalton', rarity: 'rare', ja: 'ドルトン', en: 'Dalton', char: 'dalton', expr: 'normal' },
   { id: 'kimo_bombe', rarity: 'kimo', ja: 'ジト目ボンベ', en: 'Side-eye Cylinder' },
+  { id: 'kimo_boyle', rarity: 'kimo', ja: 'むにゅっとボイル', en: 'Squished Boyle', char: 'boyle', expr: 'sweat' },
+  { id: 'kimo_celsius', rarity: 'kimo', ja: '白目セルシウス', en: 'White-eyed Celsius', char: 'celsius', expr: 'whiteeye' },
+  { id: 'kimo_kelvin', rarity: 'kimo', ja: '昇天ケルビン', en: 'Ascending Kelvin', char: 'kelvin', expr: 'ascend' },
   { id: 'kimo_thermo', rarity: 'kimo', ja: 'べろ出し温度計', en: 'Tongue-out Thermometer' },
   { id: 'kimo_molecule', rarity: 'kimo', ja: '目玉の分子', en: 'Eyeball Molecule' },
 ];
@@ -106,6 +116,23 @@ export function drawArt(ctx, id, w, h) {
   ctx.strokeStyle = NAVY;
   ctx.fillStyle = NAVY;
   ctx.lineWidth = 3 * u;
+
+  if (art && art.char) {
+    // キャラクターの絵柄：集中線の上にキャラクター
+    ctx.strokeStyle = art.rarity === 'kimo' ? '#2F4A80' : 'rgba(47,111,237,0.18)';
+    ctx.lineWidth = 2 * u;
+    for (let k = 0; k < 24; k++) {
+      const a = (Math.PI * 2 * k) / 24;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 20 * u, cy + Math.sin(a) * 20 * u);
+      ctx.lineTo(cx + Math.cos(a) * 90 * u, cy + Math.sin(a) * 90 * u);
+      ctx.stroke();
+    }
+    drawChar(ctx, art.char, art.expr || 'normal', cx, cy + 4 * u, Math.min(w, h) * 0.86, 0);
+    if (art.rarity === 'kimo') sparkles(ctx, w, h, 10, rnd, u, PALE);
+    ctx.restore();
+    return;
+  }
 
   switch (id) {
     case 'piston': {
@@ -466,4 +493,244 @@ function arrow(ctx, x1, y1, x2, y2, u, color) {
   ctx.lineTo(x2 - Math.cos(a - 0.5) * 9 * u, y2 - Math.sin(a - 0.5) * 9 * u);
   ctx.lineTo(x2 - Math.cos(a + 0.5) * 9 * u, y2 - Math.sin(a + 0.5) * 9 * u);
   ctx.closePath(); ctx.fill();
+}
+
+
+// =========================================================
+// キャラクター（8章）：その人の名前がついた「気体の精」
+// 太い輪郭線（ネイビー）、ジト目、左右で大きさの違う目、目の下のクマ。
+// 表情：normal（ふつう）/ smug（ドヤ顔）/ sweat（冷や汗）/ whiteeye（白目）/ ascend（昇天）
+// =========================================================
+export const CHARS = ['boyle', 'charles', 'kelvin', 'celsius', 'vdw', 'fahrenheit', 'dalton'];
+export const EXPRS = ['normal', 'smug', 'sweat', 'whiteeye', 'ascend'];
+
+// 目。lid：まぶたの下がり具合（0〜1）、look：黒目の向き
+function charEye(ctx, x, y, r, u, expr, look = 0.3) {
+  if (expr === 'ascend') {
+    ctx.strokeStyle = NAVY; ctx.lineWidth = 2.6 * u;
+    ctx.beginPath(); ctx.arc(x, y + r * 0.1, r * 0.8, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    return;
+  }
+  const lid = { normal: 0.5, smug: 0.62, sweat: 0.12, whiteeye: 0 }[expr] ?? 0.5;
+  if (expr === 'whiteeye') r *= 1.15;
+  ctx.fillStyle = WHITE; ctx.strokeStyle = NAVY; ctx.lineWidth = 2.6 * u;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  if (expr !== 'whiteeye') {
+    const pr = expr === 'sweat' ? r * 0.28 : r * 0.42;
+    const lk = expr === 'smug' ? 0.45 : expr === 'sweat' ? -0.35 : look;
+    ctx.fillStyle = NAVY;
+    ctx.beginPath(); ctx.arc(x + r * lk, y + r * 0.22, pr, 0, Math.PI * 2); ctx.fill();
+  }
+  // まぶた（ジト目）
+  if (lid > 0) {
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = MID;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2 * lid);
+    ctx.restore();
+    ctx.strokeStyle = NAVY; ctx.lineWidth = 2.6 * u;
+    ctx.beginPath();
+    const ly = y - r + r * 2 * lid;
+    const half = Math.sqrt(Math.max(0, r * r - (ly - y) * (ly - y)));
+    ctx.moveTo(x - half, ly); ctx.lineTo(x + half, ly); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  }
+  // クマ
+  ctx.strokeStyle = MID; ctx.lineWidth = 1.8 * u;
+  ctx.beginPath(); ctx.arc(x, y + r * 0.3, r * 1.12, Math.PI * 0.22, Math.PI * 0.78); ctx.stroke();
+}
+
+function charMouth(ctx, x, y, w, u, expr, kind = 'plain') {
+  ctx.strokeStyle = NAVY; ctx.fillStyle = NAVY; ctx.lineWidth = 2.6 * u; ctx.lineCap = 'round';
+  ctx.beginPath();
+  if (expr === 'smug') {
+    ctx.moveTo(x - w, y); ctx.quadraticCurveTo(x, y + w * 0.5, x + w * 1.1, y - w * 0.45);
+    ctx.stroke();
+  } else if (expr === 'sweat') {
+    ctx.moveTo(x - w, y);
+    for (let k = 1; k <= 4; k++) ctx.lineTo(x - w + (w * 2 * k) / 4, y + (k % 2 ? -w * 0.25 : w * 0.25));
+    ctx.stroke();
+  } else if (expr === 'whiteeye') {
+    ctx.fillStyle = NAVY;
+    ctx.ellipse(x, y + w * 0.2, w * 0.55, w * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+  } else if (expr === 'ascend') {
+    ctx.fillStyle = WHITE;
+    ctx.arc(x, y, w * 0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  } else {
+    ctx.moveTo(x - w * 0.8, y + w * 0.05); ctx.lineTo(x + w * 0.8, y - w * 0.05); ctx.stroke();
+  }
+  if (kind === 'teeth' && expr !== 'whiteeye') {
+    // 出っ歯
+    ctx.fillStyle = WHITE; ctx.strokeStyle = NAVY; ctx.lineWidth = 1.8 * u;
+    ctx.fillRect(x - w * 0.35, y + 1 * u, w * 0.32, w * 0.55); ctx.strokeRect(x - w * 0.35, y + 1 * u, w * 0.32, w * 0.55);
+    ctx.fillRect(x + w * 0.03, y + 1 * u, w * 0.32, w * 0.55); ctx.strokeRect(x + w * 0.03, y + 1 * u, w * 0.32, w * 0.55);
+  }
+  if (kind === 'tongue' && expr !== 'whiteeye' && expr !== 'ascend') {
+    // べろ
+    ctx.fillStyle = BLUE; ctx.strokeStyle = NAVY; ctx.lineWidth = 1.8 * u;
+    ctx.beginPath(); ctx.ellipse(x + w * 0.5, y + w * 0.35, w * 0.32, w * 0.45, 0.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+}
+
+function sweatDrops(ctx, x, y, u) {
+  ctx.fillStyle = PALE; ctx.strokeStyle = BLUE; ctx.lineWidth = 1.6 * u;
+  for (const [dx, dy, s] of [[0, 0, 1], [7, 9, 0.7]]) {
+    ctx.beginPath();
+    ctx.moveTo(x + dx * u, y + dy * u - 5 * s * u);
+    ctx.quadraticCurveTo(x + dx * u + 4 * s * u, y + dy * u + 2 * s * u, x + dx * u, y + dy * u + 4 * s * u);
+    ctx.quadraticCurveTo(x + dx * u - 4 * s * u, y + dy * u + 2 * s * u, x + dx * u, y + dy * u - 5 * s * u);
+    ctx.fill(); ctx.stroke();
+  }
+}
+
+function halo(ctx, x, y, u) {
+  ctx.strokeStyle = BLUE; ctx.lineWidth = 3 * u;
+  ctx.beginPath(); ctx.ellipse(x, y, 16 * u, 5 * u, 0, 0, Math.PI * 2); ctx.stroke();
+}
+
+function tube(ctx, u, x, y, w, h) {
+  ctx.fillStyle = WHITE; ctx.strokeStyle = NAVY; ctx.lineWidth = 3.4 * u;
+  rr(ctx, x, y, w, h, w / 2); ctx.fill(); ctx.stroke();
+}
+
+// キャラクターを描く。(cx, cy) が中心、size が全体の高さ、t は時間（秒、ゆらゆら動く）
+export function drawChar(ctx, id, expr = 'normal', cx = 50, cy = 50, size = 100, t = 0) {
+  const u = size / 100;
+  ctx.save();
+  ctx.translate(cx, cy + Math.sin(t * 2.2) * 1.5 * u);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  if (expr === 'ascend') ctx.globalAlpha = 0.78; // 昇天：薄い青に（灰色にはしない）
+  const E = expr;
+  switch (id) {
+    case 'boyle': {
+      // ピストン型の胴体。押されると（冷や汗・白目）顔がむにゅっと潰れる
+      const squish = E === 'sweat' || E === 'whiteeye' ? 0.84 : 1;
+      ctx.save();
+      ctx.scale(1 / Math.sqrt(squish), squish);
+      ctx.fillStyle = NAVY;
+      rr(ctx, -4 * u, -50 * u, 8 * u, 20 * u, 2 * u); ctx.fill();
+      rr(ctx, -18 * u, -54 * u, 36 * u, 8 * u, 3 * u); ctx.fill();
+      ctx.fillStyle = WHITE; ctx.strokeStyle = NAVY; ctx.lineWidth = 3.4 * u;
+      rr(ctx, -30 * u, -32 * u, 60 * u, 76 * u, 14 * u); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = NAVY; rr(ctx, -30 * u, -32 * u, 60 * u, 10 * u, 5 * u); ctx.fill();
+      ctx.fillStyle = PALE; ctx.fillRect(-27 * u, 22 * u, 54 * u, 16 * u);
+      charEye(ctx, -12 * u, -6 * u, 9 * u, u, E, 0.3);
+      charEye(ctx, 13 * u, -5 * u, 6.5 * u, u, E, 0.4);
+      charMouth(ctx, 0, 11 * u, 9 * u, u, E, 'teeth');
+      ctx.restore();
+      if (E === 'sweat') sweatDrops(ctx, 26 * u, -20 * u, u);
+      break;
+    }
+    case 'charles': {
+      // 熱気球型の頭、ひょろ長い首。温められる（ドヤ顔）とふくらむ
+      const inf = E === 'smug' ? 1.1 : E === 'sweat' ? 0.92 : 1;
+      ctx.strokeStyle = NAVY; ctx.lineWidth = 3 * u;
+      ctx.beginPath(); ctx.moveTo(-3 * u, 8 * u); ctx.lineTo(-3 * u, 34 * u); ctx.moveTo(3 * u, 8 * u); ctx.lineTo(3 * u, 34 * u); ctx.stroke();
+      ctx.fillStyle = NAVY; rr(ctx, -11 * u, 33 * u, 22 * u, 13 * u, 3 * u); ctx.fill();
+      ctx.save(); ctx.scale(inf, inf);
+      ctx.fillStyle = PALE; ctx.strokeStyle = NAVY; ctx.lineWidth = 3.4 * u;
+      ctx.beginPath(); ctx.ellipse(0, -18 * u, 31 * u, 32 * u, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.clip();
+      ctx.fillStyle = BLUE;
+      for (const dx of [-24, 24]) { ctx.beginPath(); ctx.ellipse(dx * u, -18 * u, 7 * u, 32 * u, 0, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+      ctx.beginPath(); ctx.ellipse(0, -18 * u, 31 * u, 32 * u, 0, 0, Math.PI * 2); ctx.stroke();
+      charEye(ctx, -10 * u, -22 * u, 7.5 * u, u, E, 0.35);
+      charEye(ctx, 10 * u, -20 * u, 5.5 * u, u, E, 0.45);
+      charMouth(ctx, 1 * u, -5 * u, 7 * u, u, E);
+      ctx.restore();
+      if (E === 'sweat') sweatDrops(ctx, 28 * u, -34 * u, u);
+      break;
+    }
+    case 'kelvin': {
+      // 霜のついた温度計型。眉毛だけ太い。無表情
+      tube(ctx, u, -17 * u, -48 * u, 34 * u, 76 * u);
+      ctx.fillStyle = WHITE; ctx.beginPath(); ctx.arc(0, 32 * u, 17 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = BLUE; ctx.beginPath(); ctx.arc(0, 32 * u, 11 * u, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(-4 * u, 10 * u, 8 * u, 18 * u);
+      // 霜
+      ctx.fillStyle = WHITE; ctx.strokeStyle = BLUE; ctx.lineWidth = 1.6 * u;
+      for (const [x, y] of [[-16, -36], [-10, -48], [0, -51], [10, -48], [16, -36], [17, -20]]) {
+        ctx.beginPath(); ctx.moveTo(x * u, (y - 5) * u); ctx.lineTo((x + 3) * u, y * u); ctx.lineTo(x * u, (y + 5) * u); ctx.lineTo((x - 3) * u, y * u); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      // 太い眉
+      ctx.fillStyle = NAVY;
+      rr(ctx, -16 * u, -34 * u, 13 * u, 5 * u, 2 * u); ctx.fill();
+      rr(ctx, 3 * u, -33 * u, 12 * u, 5 * u, 2 * u); ctx.fill();
+      charEye(ctx, -9 * u, -21 * u, 6.5 * u, u, E === 'smug' ? 'normal' : E, 0.2);
+      charEye(ctx, 9 * u, -20 * u, 5 * u, u, E === 'smug' ? 'normal' : E, 0.2);
+      charMouth(ctx, 0, -6 * u, 6 * u, u, E === 'smug' ? 'normal' : E);
+      if (E === 'sweat') sweatDrops(ctx, 20 * u, -40 * u, u);
+      break;
+    }
+    case 'celsius': {
+      // 温度計型で、目盛りが途中でずれている。にやけ顔、舌を出す
+      tube(ctx, u, -17 * u, -48 * u, 34 * u, 76 * u);
+      ctx.fillStyle = WHITE; ctx.beginPath(); ctx.arc(0, 32 * u, 17 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = BLUE; ctx.beginPath(); ctx.arc(0, 32 * u, 11 * u, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = NAVY; ctx.lineWidth = 2 * u;
+      for (let k = 0; k < 4; k++) { const y = (-40 + k * 7) * u; ctx.beginPath(); ctx.moveTo(17 * u, y); ctx.lineTo(24 * u, y); ctx.stroke(); }
+      for (let k = 0; k < 4; k++) { const y = (-8 + k * 7) * u; ctx.beginPath(); ctx.moveTo(21 * u, y); ctx.lineTo(28 * u, y); ctx.stroke(); } // ずれた目盛り
+      charEye(ctx, -8 * u, -24 * u, 7 * u, u, E, 0.5);
+      charEye(ctx, 9 * u, -22 * u, 5 * u, u, E, 0.6);
+      charMouth(ctx, 0, -6 * u, 7 * u, u, E === 'normal' ? 'smug' : E, 'tongue');
+      if (E === 'sweat') sweatDrops(ctx, -22 * u, -40 * u, u);
+      break;
+    }
+    case 'vdw': {
+      // 分子がぎゅうぎゅうに詰まったゴツゴツの体。つながった太眉
+      const balls = [[-18, -8, 17], [15, -12, 18], [-3, 12, 20], [21, 14, 14], [-22, 18, 13], [2, -30, 14], [-20, -28, 10], [22, -32, 9]];
+      ctx.strokeStyle = NAVY; ctx.lineWidth = 7 * u;
+      balls.forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x * u, y * u, r * u, 0, Math.PI * 2); ctx.stroke(); });
+      balls.forEach(([x, y, r], k) => { ctx.fillStyle = k % 3 === 1 ? PALE : WHITE; ctx.beginPath(); ctx.arc(x * u, y * u, r * u - 1.5 * u, 0, Math.PI * 2); ctx.fill(); });
+      charEye(ctx, -9 * u, -7 * u, 7.5 * u, u, E, 0.3);
+      charEye(ctx, 10 * u, -8 * u, 6 * u, u, E, 0.35);
+      ctx.fillStyle = NAVY;
+      ctx.beginPath(); ctx.moveTo(-19 * u, -19 * u); ctx.quadraticCurveTo(0, -24 * u, 18 * u, -19 * u); ctx.lineTo(18 * u, -15 * u); ctx.quadraticCurveTo(0, -20 * u, -19 * u, -15 * u); ctx.closePath(); ctx.fill();
+      charMouth(ctx, 0, 10 * u, 8 * u, u, E);
+      if (E === 'sweat') sweatDrops(ctx, 30 * u, -16 * u, u);
+      break;
+    }
+    case 'fahrenheit': {
+      // シルクハットに古い温度計、片眼鏡
+      tube(ctx, u, -17 * u, -38 * u, 34 * u, 70 * u);
+      ctx.fillStyle = PALE; ctx.beginPath(); ctx.arc(0, 36 * u, 16 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = NAVY; ctx.beginPath(); ctx.arc(0, 36 * u, 10 * u, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = NAVY;
+      rr(ctx, -15 * u, -64 * u, 30 * u, 26 * u, 2 * u); ctx.fill();
+      rr(ctx, -26 * u, -40 * u, 52 * u, 6 * u, 3 * u); ctx.fill();
+      ctx.fillStyle = BLUE; ctx.fillRect(-15 * u, -46 * u, 30 * u, 4 * u);
+      charEye(ctx, -8 * u, -18 * u, 6 * u, u, E, 0.3);
+      charEye(ctx, 9 * u, -17 * u, 7.5 * u, u, E, 0.3);
+      ctx.strokeStyle = NAVY; ctx.lineWidth = 2.4 * u;
+      ctx.beginPath(); ctx.arc(9 * u, -17 * u, 10 * u, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(18 * u, -12 * u); ctx.quadraticCurveTo(28 * u, 4 * u, 18 * u, 18 * u); ctx.stroke();
+      charMouth(ctx, 0, -2 * u, 6.5 * u, u, E);
+      if (E === 'sweat') sweatDrops(ctx, -22 * u, -26 * u, u);
+      break;
+    }
+    case 'dalton': {
+      // 大小の玉がいくつもくっついた体
+      const balls = [[0, 2, 25], [-25, 22, 12], [24, -22, 13], [26, 22, 9], [-22, -26, 9], [-30, -2, 7]];
+      ctx.strokeStyle = NAVY; ctx.lineWidth = 3.4 * u;
+      balls.slice(1).forEach(([x, y, r], k) => { ctx.fillStyle = [PALE, MID, WHITE, BLUE, PALE][k]; ctx.beginPath(); ctx.arc(x * u, y * u, r * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+      ctx.fillStyle = WHITE; ctx.beginPath(); ctx.arc(0, 2 * u, 25 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      charEye(ctx, -9 * u, -3 * u, 7.5 * u, u, E, 0.3);
+      charEye(ctx, 10 * u, -2 * u, 5.5 * u, u, E, 0.35);
+      charMouth(ctx, 0, 13 * u, 7 * u, u, E);
+      if (E === 'sweat') sweatDrops(ctx, 22 * u, -6 * u, u);
+      break;
+    }
+    default: break;
+  }
+  if (E === 'ascend') halo(ctx, 0, -58 * u, u);
+  if (E === 'whiteeye') {
+    // 青ざめた線（危険メーター90以上）
+    ctx.strokeStyle = BLUE; ctx.lineWidth = 2.2 * u;
+    for (let k = 0; k < 4; k++) {
+      ctx.beginPath(); ctx.moveTo((-14 + k * 7) * u, -44 * u); ctx.lineTo((-14 + k * 7) * u, -32 * u); ctx.stroke();
+    }
+  }
+  ctx.restore();
 }

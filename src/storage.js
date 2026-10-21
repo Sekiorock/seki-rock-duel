@@ -2,7 +2,7 @@
 // データの形が変わる版では、migrate() で古い形から新しい形に変換し、記録が消えないようにする。
 
 const PREFIX = 'srd.';
-export const SCHEMA = 2; // v0.4 のデータの形
+export const SCHEMA = 3; // v0.5 のデータの形
 
 export function load(key, fallback) {
   try {
@@ -41,6 +41,13 @@ export function migrate() {
   if (!isObj(load('titles', null))) save('titles', {});
   if (!isObj(load('mastery', null))) save('mastery', { cards: {}, traps: {} });
   if (!isObj(load('story', null))) save('story', { cleared: {}, friends: [] });
+  // v0.5：ボンベの顔は、仲間にしたキャラクターだけ選べる（それまでは「なし」）
+  if (meta.schema < 3) {
+    const prof = load('profile', {});
+    const story = load('story', {});
+    const friends = isObj(story) && Array.isArray(story.friends) ? story.friends : [];
+    if (isObj(prof) && !friends.includes(prof.char)) { prof.char = null; save('profile', prof); }
+  }
   save('meta', { schema: SCHEMA, migratedAt: Date.now() });
   return true;
 }
@@ -96,7 +103,7 @@ export function loadRecords() {
 export const saveRecords = (r) => save('records', r);
 
 // ---- プロフィール（srd.profile）：段位と経験値 ----
-const DEFAULT_PROFILE = { nickname: '', char: 'boyle', rank: 0, exp: 0 };
+const DEFAULT_PROFILE = { nickname: '', char: null, rank: 0, exp: 0 };
 export const loadProfile = () => merge(DEFAULT_PROFILE, load('profile', {}));
 export const saveProfile = (p) => save('profile', p);
 
@@ -123,3 +130,14 @@ export function loadMastery() {
   return m;
 }
 export const saveMastery = (m) => save('mastery', m);
+
+// ---- ストーリー（srd.story） ----
+// cleared：{ 章: true }、friends：仲間にしたキャラクター、quiz：{ 章: { first, total } }、losses：{ 章: 負けた回数 }
+const DEFAULT_STORY = { cleared: {}, friends: [], quiz: {}, losses: {}, seen: {} };
+export function loadStory() {
+  const st = merge(DEFAULT_STORY, load('story', {}));
+  for (const k of ['cleared', 'quiz', 'losses', 'seen']) if (!isObj(st[k])) st[k] = {};
+  if (!Array.isArray(st.friends)) st.friends = [];
+  return st;
+}
+export const saveStory = (st) => save('story', st);

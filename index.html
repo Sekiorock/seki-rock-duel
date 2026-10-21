@@ -7,7 +7,7 @@
   <meta name="format-detection" content="telephone=no">
   <title>セキオロックデュエル</title>
   <!-- ?v= は版番号。版が変わるたびに必ず新しいファイルを読み込ませるための印 -->
-  <link rel="stylesheet" href="style.css?v=0.4.0">
+  <link rel="stylesheet" href="style.css?v=0.5.0">
   <script>
     // 読み込みに失敗したとき（古いファイルが混ざったときなど）に、白い画面のままにしない
     (function () {
@@ -46,6 +46,9 @@
           <em id="dojo-best" class="menu-best"></em>
         </button>
         <div class="menu-grid">
+          <button id="btn-story" class="menu-btn small story" type="button">
+            <b data-t="story">ストーリー</b><small id="story-sub" data-t="storyDesc">気体の精たちと対決</small>
+          </button>
           <button id="btn-ta" class="menu-btn small" type="button">
             <b data-t="ta">タイムアタック</b><small data-t="taDesc">60秒で何回ジャストできるか</small>
           </button>
@@ -59,13 +62,68 @@
             <b data-t="collection">図鑑</b><small id="collection-sub" data-t="collectionDesc">集めた絵柄を眺める</small>
             <em id="pack-badge" class="pack-badge" hidden></em>
           </button>
+          <button id="btn-records" class="menu-btn small" type="button">
+            <b data-t="records">記録</b><small data-t="recordsDesc">段位・熟練度・称号</small>
+          </button>
         </div>
-        <button id="btn-records" class="menu-btn records" type="button">
-          <b data-t="records">記録</b><small data-t="recordsDesc">段位・熟練度・称号</small>
-        </button>
       </div>
     </div>
-    <p id="version" class="version">v0.4.0</p>
+    <p id="version" class="version">v0.5.0</p>
+  </section>
+
+  <!-- ストーリー：章の一覧（単元全体の地図） -->
+  <section id="screen-story" class="screen scroll" hidden>
+    <header class="topbar">
+      <button class="sub-btn" type="button" data-t="back" data-go-home>もどる</button>
+      <h2 class="screen-title" data-t="storyTitle">ストーリー</h2>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+      </div>
+    </header>
+    <p class="story-note" data-t="storyMapNote"></p>
+    <div id="face-picker" class="face-picker"></div>
+    <div id="chapter-list" class="chapter-list"></div>
+  </section>
+
+  <!-- 会話と解説 -->
+  <section id="screen-talk" class="screen" hidden>
+    <div class="talk-top">
+      <span id="talk-chapter" class="talk-chapter"></span>
+      <button id="btn-skip" class="sub-btn" type="button" data-t="skip">スキップ</button>
+    </div>
+    <div id="talk-stage" class="talk-stage">
+      <canvas id="talk-char" class="talk-char" aria-hidden="true"></canvas>
+      <div id="lesson" class="lesson" hidden>
+        <p id="lesson-ref" class="lesson-ref"></p>
+        <h3 id="lesson-title"></h3>
+        <div class="lesson-demo"><canvas id="lesson-bombe"></canvas></div>
+        <p id="lesson-state" class="lesson-state num"></p>
+        <p id="lesson-text" class="lesson-text"></p>
+      </div>
+    </div>
+    <div id="bubble" class="bubble">
+      <b id="bubble-name"></b>
+      <p id="bubble-text"></p>
+      <span class="bubble-next" data-t="tapNext"></span>
+    </div>
+  </section>
+
+  <!-- 確認問題（説明してみよう） -->
+  <section id="screen-quiz" class="screen scroll" hidden>
+    <div class="quiz-wrap">
+      <p class="quiz-head"><b data-t="quizTitle"></b><span id="quiz-count"></span></p>
+      <p id="quiz-ref" class="lesson-ref"></p>
+      <p id="quiz-q" class="quiz-q"></p>
+      <div id="quiz-choices" class="quiz-choices"></div>
+      <div id="quiz-feedback" class="quiz-feedback" hidden>
+        <b id="quiz-verdict"></b>
+        <p id="quiz-explain"></p>
+      </div>
+    </div>
+    <div class="result-buttons">
+      <button id="btn-quiz-next" class="duel-btn" type="button" hidden></button>
+    </div>
   </section>
 
   <!-- 記録：段位、自己ベスト、熟練度マップ、称号 -->
@@ -156,6 +214,13 @@
       </div>
     </header>
 
+    <div id="vs-bar" class="vs-bar" hidden>
+      <canvas id="vs-face" class="vs-face" aria-hidden="true"></canvas>
+      <div class="vs-rows">
+        <div class="vs-row"><span id="vs-name"></span><i class="vs-track"><i id="vs-opp"></i></i><b id="vs-opp-n" class="num">0</b></div>
+        <div class="vs-row me"><span data-t="you"></span><i class="vs-track"><i id="vs-me"></i></i><b id="vs-me-n" class="num">0</b></div>
+      </div>
+    </div>
     <div class="target-card">
       <div id="target-label" class="target-label" data-t="targetLabel"></div>
       <div id="target-text" class="target-value num"></div>
@@ -199,6 +264,12 @@
       </div>
       <div id="result-stats" class="result-stats"></div>
       <div id="result-titles" class="result-titles"></div>
+      <div id="result-friend" class="result-friend" hidden>
+        <canvas id="friend-canvas" class="friend-canvas" aria-hidden="true"></canvas>
+        <b id="friend-text"></b>
+        <small data-t="friendNote"></small>
+        <button id="btn-use-face" class="sub-btn" type="button" data-t="useAsFace"></button>
+      </div>
       <div class="result-mistakes">
         <p class="section-label" data-t="resMistakes"></p>
         <div id="result-mistakes"></div>
@@ -245,6 +316,6 @@
   </div>
 
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
-  <script type="module" src="src/main.js?v=0.4.0"></script>
+  <script type="module" src="src/main.js?v=0.5.0"></script>
 </body>
 </html>
