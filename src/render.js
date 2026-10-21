@@ -5,9 +5,10 @@
 //   体積 V … ピストンの高さ（気体の部分の高さは V に比例）
 //   温度 T … 左の温度計の高さと、粒の速さ（√T に比例）と粒の色（熱いほど濃い青）
 //   圧力 P … 壁を押す矢印の長さ、気体の色の濃さ、圧力計の針。粒が壁に当たると光る
+//   物質量 n … 粒の数（n に比例。v0.6〜）
 
-import { CONFIG } from './config.js?v=0.5.0';
-import { drawChar } from './chars.js?v=0.5.0';
+import { CONFIG } from './config.js?v=0.6.0';
+import { drawChar } from './chars.js?v=0.6.0';
 
 const NAVY = '#1B2A49';
 const BLUE = '#2F6FED';
@@ -38,7 +39,7 @@ export class BombeView {
     this.ctx = canvas.getContext('2d');
     this.showGauge = showGauge;
     const s = CONFIG.START_STATE;
-    this.cur = { P: s.P, V: s.V, T: s.T };   // いま表示している値（数）
+    this.cur = { P: s.P, V: s.V, T: s.T, N: s.N };   // いま表示している値（数）
     this.target = null;                       // 目標の圧力（数）
     this.shadow = null;                       // 補助ありのシャドウ { seq, start, onStep }
     this.ghost = null;                        // シャドウの今の状態（数）
@@ -61,7 +62,7 @@ export class BombeView {
   _initParticles() {
     let seed = 12345;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let i = 0; i < CONFIG.GAS.PARTICLES; i++) {
+    for (let i = 0; i < CONFIG.GAS.PARTICLES * 3; i++) { // 物質量が3倍になっても足りるだけ用意しておく
       const a = rnd() * Math.PI * 2;
       this.particles.push({ x: rnd(), y: rnd(), dx: Math.cos(a), dy: Math.sin(a), sp: 0.7 + rnd() * 0.6 });
     }
@@ -80,7 +81,7 @@ export class BombeView {
   // 値をすぐに反映する（P は 0.1×10⁵ Pa 単位、V は 0.5 L 単位、T は K の数）
   set(state, target = this.target) {
     this.tween = null;
-    this.cur = { ...state };
+    this.cur = { N: CONFIG.START_STATE.N, ...state };
     this.target = target;
   }
 
@@ -117,7 +118,7 @@ export class BombeView {
       const k = easeInOutCubic(Math.min(1, (t - i * seg) / S.STEP_MS));
       const a = sh.seq[i];
       const b = sh.seq[i + 1];
-      st = { P: lerp(a.P, b.P, k), V: lerp(a.V, b.V, k), T: lerp(a.T, b.T, k) };
+      st = { P: lerp(a.P, b.P, k), V: lerp(a.V, b.V, k), T: lerp(a.T, b.T, k), N: lerp(a.N ?? 6, b.N ?? 6, k) };
       step = i;
       if (t < 200) alpha = t / 200; // 最初は、ふわっと現れる
     } else if (t < n * seg + S.HOLD_MS) {
@@ -165,7 +166,7 @@ export class BombeView {
   animateTo(state, ms = CONFIG.ANIM.STEP_MS) {
     return new Promise((resolve) => {
       if (this.tween) this.tween.resolve();
-      this.tween = { from: { ...this.cur }, to: { ...state }, start: performance.now(), ms, resolve };
+      this.tween = { from: { ...this.cur }, to: { N: this.cur.N, ...state }, start: performance.now(), ms, resolve };
     });
   }
 
@@ -196,6 +197,7 @@ export class BombeView {
         P: lerp(tw.from.P, tw.to.P, eP),
         V: lerp(tw.from.V, tw.to.V, e),
         T: lerp(tw.from.T, tw.to.T, e),
+        N: lerp(tw.from.N ?? CONFIG.START_STATE.N, tw.to.N ?? CONFIG.START_STATE.N, e),
       };
       if (t >= 1) {
         this.tween = null;
@@ -217,7 +219,8 @@ export class BombeView {
     const g = this._geom();
     const gas = this._gasRect(g, this.cur.V);
     const speed = CONFIG.GAS.SPEED_AT_300K * Math.sqrt(Math.max(this.cur.T, 1) / 300);
-    for (const p of this.particles) {
+    const count = Math.round(CONFIG.GAS.PARTICLES * (this.cur.N ?? CONFIG.START_STATE.N) / CONFIG.START_STATE.N);
+    for (const p of this.particles.slice(0, Math.max(6, count))) {
       const d = speed * p.sp * dt;
       p.x += (p.dx * d) / gas.w;
       p.y += (p.dy * d) / gas.h;
@@ -343,8 +346,8 @@ export class BombeView {
     ctx.fillStyle = BLUE;
     ctx.strokeStyle = NAVY;
     ctx.lineWidth = 1.2;
-    this.particles.forEach((p, i) => {
-      const ang = (i / this.particles.length) * Math.PI * 2 + p.sp;
+    this.particles.slice(0, CONFIG.GAS.PARTICLES).forEach((p, i) => {
+      const ang = (i / CONFIG.GAS.PARTICLES) * Math.PI * 2 + p.sp;
       const sp = 160 + p.sp * 160;
       const x = g.cx + Math.cos(ang) * sp * t;
       const y = cy + Math.sin(ang) * sp * t + 300 * t * t;
@@ -440,7 +443,9 @@ export class BombeView {
     ctx.strokeStyle = NAVY;
     ctx.lineWidth = 1.2;
     const r = CONFIG.GAS.RADIUS;
-    for (const p of this.burstAt ? [] : this.particles) {
+    // 粒の数は物質量に比例する
+    const count = Math.max(6, Math.min(this.particles.length, Math.round(CONFIG.GAS.PARTICLES * (this.cur.N ?? CONFIG.START_STATE.N) / CONFIG.START_STATE.N)));
+    for (const p of this.burstAt ? [] : this.particles.slice(0, count)) {
       const x = gas.left + r + p.x * (gas.w - r * 2);
       const y = gas.top + r + p.y * Math.max(0, gas.h - r * 2);
       ctx.beginPath();

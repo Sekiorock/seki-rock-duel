@@ -1,10 +1,10 @@
 // 問題の自動生成、解の探索、誤答の推定（仕様書 4.4、4.5）。
 
-import { CONFIG } from './config.js?v=0.5.0';
-import { eq } from './frac.js?v=0.5.0';
+import { CONFIG } from './config.js?v=0.6.0';
+import { eq } from './frac.js?v=0.6.0';
 import {
-  vmul, vset, tsetK, tsetC, applySequence, isValidP, isLegalPlay, startState,
-} from './cards.js?v=0.5.0';
+  vmul, vset, tsetK, tsetC, nmul, applySequence, isValidP, isLegalPlay, startState,
+} from './cards.js?v=0.6.0';
 
 // ---- カードを作る ----
 function weightedPick(list, rng) {
@@ -23,6 +23,7 @@ export function randomCardOfType(type, rng) {
     case 'vset': return vset(rng.pick(CONFIG.VOLUME_UNITS));
     case 'tset_k': return tsetK(rng.pick(CONFIG.TEMPS_K));
     case 'tset_c': return tsetC(rng.pick(CONFIG.TEMPS_K));
+    case 'nmul': { const [n, d] = rng.pick(CONFIG.NMUL_FACTORS); return nmul(n, d); }
     default: throw new Error('知らないカード ' + type);
   }
 }
@@ -40,6 +41,7 @@ function cardPool(stage) {
   if (types.has('vset')) CONFIG.VOLUME_UNITS.forEach((v) => pool.push(vset(v)));
   if (types.has('tset_k')) CONFIG.TEMPS_K.forEach((k) => pool.push(tsetK(k)));
   if (types.has('tset_c')) CONFIG.TEMPS_K.forEach((k) => pool.push(tsetC(k)));
+  if (types.has('nmul')) CONFIG.NMUL_FACTORS.forEach(([n, d]) => pool.push(nmul(n, d)));
   return pool;
 }
 

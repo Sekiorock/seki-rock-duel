@@ -7,7 +7,7 @@
   <meta name="format-detection" content="telephone=no">
   <title>セキオロックデュエル</title>
   <!-- ?v= は版番号。版が変わるたびに必ず新しいファイルを読み込ませるための印 -->
-  <link rel="stylesheet" href="style.css?v=0.5.0">
+  <link rel="stylesheet" href="style.css?v=0.6.0">
   <script>
     // 読み込みに失敗したとき（古いファイルが混ざったときなど）に、白い画面のままにしない
     (function () {
@@ -68,7 +68,7 @@
         </div>
       </div>
     </div>
-    <p id="version" class="version">v0.5.0</p>
+    <p id="version" class="version">v0.6.0</p>
   </section>
 
   <!-- ストーリー：章の一覧（単元全体の地図） -->
@@ -90,7 +90,10 @@
   <section id="screen-talk" class="screen" hidden>
     <div class="talk-top">
       <span id="talk-chapter" class="talk-chapter"></span>
-      <button id="btn-skip" class="sub-btn" type="button" data-t="skip">スキップ</button>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button id="btn-skip" class="sub-btn" type="button" data-t="skip">スキップ</button>
+      </div>
     </div>
     <div id="talk-stage" class="talk-stage">
       <canvas id="talk-char" class="talk-char" aria-hidden="true"></canvas>
@@ -111,6 +114,13 @@
 
   <!-- 確認問題（説明してみよう） -->
   <section id="screen-quiz" class="screen scroll" hidden>
+    <header class="topbar">
+      <button id="btn-quiz-back" class="sub-btn" type="button" data-t="back" hidden>もどる</button>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+      </div>
+    </header>
     <div class="quiz-wrap">
       <p class="quiz-head"><b data-t="quizTitle"></b><span id="quiz-count"></span></p>
       <p id="quiz-ref" class="lesson-ref"></p>
@@ -156,6 +166,7 @@
 
   <!-- カードパックを開ける -->
   <section id="screen-pack" class="screen" hidden>
+    <div class="corner"><span></span><div class="corner-right"><button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button><button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button></div></div>
     <div class="pack-wrap">
       <h2 class="pack-title" data-t="packTitle"></h2>
       <p class="pack-hint" data-t="tapToOpen"></p>
@@ -187,6 +198,9 @@
     </div>
     <p class="section-label" data-t="chooseStage"></p>
     <div id="stage-grid" class="stage-grid"></div>
+    <button id="btn-kantei" class="menu-btn kantei-btn" type="button">
+      <b data-t="kantei">分子量の鑑定</b><small id="kantei-sub" data-t="kanteiDesc">M = mRT/(pV) で気体を見分ける</small>
+    </button>
   </section>
 
   <!-- プレイ画面（練習室と道場で共通） -->
@@ -252,6 +266,7 @@
 
   <!-- 道場の結果 -->
   <section id="screen-result" class="screen" hidden>
+    <div class="corner"><span></span><div class="corner-right"><button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button><button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button></div></div>
     <div class="result-wrap">
       <h2 id="result-title" class="result-title"></h2>
       <p class="result-label" data-t="scoreLabel"></p>
@@ -316,6 +331,6 @@
   </div>
 
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
-  <script type="module" src="src/main.js?v=0.5.0"></script>
+  <script type="module" src="src/main.js?v=0.6.0"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 // 対戦ルール（6章）。v0.5：ストーリーの相手の技（おじゃま）だけ。
 // v0.9 で、熱波・着弾待ち・相殺・バルブ・冷却係を足す。CPU戦とライブ戦で共通にする。
 
-import { frost, tsetC } from './cards.js?v=0.5.0';
-import { generateProblem } from './puzzle.js?v=0.5.0';
+import { frost, tsetC, nmul, applyCard, isValidN, isValidP } from './cards.js?v=0.6.0';
+import { generateProblem } from './puzzle.js?v=0.6.0';
 
 // 場に出ていない手札の位置（霜は除く）
 function freeSlots(board, pred = () => true) {
@@ -50,4 +50,18 @@ export function swapTarget(board, rng) {
   return { type: 'swap_target' };
 }
 
-export const TRICKS = { frost: sendFrost, to_celsius: sendToCelsius, swap_target: swapTarget };
+// 気体のもれ・注入（ストーリー5章、アボガドロの技）：ボンベの物質量を変え、その状態から新しい目標を出す
+export function leakGas(board, rng) {
+  const options = rng.shuffle([[2, 1], [1, 2], [3, 2], [2, 3]]);
+  for (const [a, b] of options) {
+    const next = applyCard(board.state, nmul(a, b));
+    if (!isValidN(next.N) || !isValidP(next.P)) continue;
+    board.field.fill(null);
+    const p = generateProblem({ state: next, keep: board.hand.slice(), stage: board.stage, rng, preferModel: null });
+    board.loadProblem(p);
+    return { type: 'leak', dir: a > b ? 'in' : 'out' };
+  }
+  return null;
+}
+
+export const TRICKS = { frost: sendFrost, to_celsius: sendToCelsius, swap_target: swapTarget, leak: leakGas };

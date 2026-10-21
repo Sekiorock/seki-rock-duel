@@ -1,5 +1,6 @@
 // ストーリーの文言（会話・教科書の要点の解説・確認問題）。日本語（ja）と英語（en）。
-// 会話のセリフは1つ20文字以内（8.3）。解説（lesson）は教科書（第3章 気体 p.38〜43）の要点をまとめたもの。
+// 会話のセリフは1つ20文字以内（8.3）。解説（lesson）は教科書（第3章 気体）の要点をまとめたもの。
+// v0.5：1〜4章（p.38〜43）。v0.6：5章（p.44〜45、状態方程式）。
 //
 // コマの形
 //   { who: 'boyle', face: 'normal', text: '…' }                 キャラクターのセリフ
@@ -26,6 +27,9 @@ const DEMO = {
   bc: [{ P: 10, V: 12, T: 300 }, { P: 20, V: 6, T: 300 }, { P: 20, V: 12, T: 600 }],
   // ℃の罠：27℃→327℃は 300 K → 600 K（2倍）
   trap: [{ P: 10, V: 8, T: 300 }, { P: 10, V: 16, T: 600 }],
+  // 状態方程式：体積・温度一定で物質量 2 倍 → 圧力 2 倍（粒の数も 2 倍）
+  nDouble: [{ P: 10, V: 12, T: 300, N: 6 }, { P: 20, V: 12, T: 300, N: 12 }],
+  nTriple: [{ P: 10, V: 12, T: 300, N: 6 }, { P: 20, V: 12, T: 300, N: 12 }, { P: 30, V: 12, T: 300, N: 18 }],
 };
 
 const JA = {
@@ -170,6 +174,54 @@ const JA = {
         { q: '27℃ の気体を、圧力一定で 327℃ にした。体積は何倍？', ref: 'p.40',
           choices: ['2 倍', '12 倍', '1/2 倍', '約 1.1 倍'], answer: 0,
           explain: '300 K → 600 K で絶対温度が 2 倍なので、体積も 2 倍。℃ の数字のまま比べてはいけない。' },
+      ],
+    },
+
+    5: {
+      title: 'アボガドロ：気体の量で勝負',
+      topic: '気体の状態方程式（pV = nRT）と分子量',
+      pages: 'p.44〜45',
+      intro: [
+        { who: 'avogadro', face: 'normal', text: 'アボガドロだ。量で勝負だ' },
+        { who: 'avogadro', face: 'smug', text: '1 molは6.0×10²³個の集まり' },
+        { lesson: 'モル体積と気体定数', ref: 'p.44 (10)式',
+          text: '0℃、1.013×10⁵ Pa で、気体 1 mol の体積（モル体積）は 22.4 L/mol。\nボイル・シャルルの法則 pv/T = R にこの値を代入すると\nR = 1.013×10⁵ × 22.4 ÷ 273 ≈ 8.31×10³ Pa·L/(mol·K)\nこの R を気体定数という。' },
+        { lesson: '気体の状態方程式', ref: 'p.44 (11)式', demo: DEMO.nDouble,
+          text: 'n mol の気体の体積は V = nv。これを pv = RT に代入すると\npV = nRT\n圧力・体積・物質量・絶対温度の関係を、1つの式で表せる。' },
+        { lesson: '物質量を増やすと', ref: 'p.44', demo: DEMO.nTriple,
+          text: '体積と温度が一定のまま物質量を 2 倍にすると、分子の数が 2 倍になり、壁にぶつかる回数も 2 倍。\n圧力は物質量に比例する（p = nRT/V）。' },
+        { lesson: '分子量の求め方', ref: 'p.45 (12)(13)式',
+          text: '物質量 n = m/M（m：質量 [g]、M：モル質量 [g/mol]）を代入すると\npV = (m/M)RT　→　M = mRT/(pV)\n密度 d = m/V を使うと　M = dRT/p\n質量・圧力・体積・温度を測れば、分子量がわかる。' },
+        { who: 'avogadro', face: 'normal', text: '物質量カードを使うぞ' },
+        { who: 'avogadro', face: 'smug', text: '気体を出し入れしてやる' },
+      ],
+      outro: [
+        { who: 'avogadro', face: 'sweat', text: '量より、計算か…' },
+        { who: 'avogadro', face: 'normal', text: 'pV = nRT を忘れるな' },
+        { who: 'avogadro', face: 'smug', text: '仲間になってやろう' },
+        { who: 'dalton', face: 'normal', text: '次は、気体を混ぜてみないか' },
+      ],
+      lose: { who: 'avogadro', face: 'smug', text: '量が足りないな' },
+      kantei: 2, // 確認問題のあとに、分子量の鑑定を2問（自動で作る）
+      quiz: [
+        { q: '27℃、1.5×10⁵ Pa で 8.3 L の気体の物質量は何 mol？（R = 8.3×10³ Pa·L/(mol·K)）', ref: 'p.44 問3',
+          choices: ['0.50 mol', '5.6 mol', '2.0 mol', '5.0×10² mol'], answer: 0,
+          explain: 'n = pV/(RT) = 1.5×10⁵ × 8.3 ÷ (8.3×10³ × 300) = 0.50 mol。\n（27℃ のまま計算すると 5.6 mol になってしまう）' },
+        { q: '0℃、1.013×10⁵ Pa での気体 1 mol の体積（モル体積）は？', ref: 'p.44',
+          choices: ['22.4 L', '22.4 mL', '2.24 L', '224 L'], answer: 0,
+          explain: 'この状態での気体のモル体積は、気体の種類によらず約 22.4 L/mol。' },
+        { q: '体積と温度を一定にしたまま、気体の物質量を 2 倍にした。圧力は？', ref: 'p.44 (11)式',
+          choices: ['2 倍になる', '1/2 倍になる', '4 倍になる', '変わらない'], answer: 0,
+          explain: 'pV = nRT より p = nRT/V。V と T が一定なら、圧力は物質量に比例する。' },
+        { q: 'ある気体 10 g は、27℃、1.0×10⁵ Pa で 8.3 L を占めた。この気体の分子量は？', ref: 'p.45 例題2',
+          choices: ['30', '2.7', '0.033', '3.0×10²'], answer: 0,
+          explain: 'M = mRT/(pV) = 10 × 8.3×10³ × 300 ÷ (1.0×10⁵ × 8.3) = 30' },
+        { q: 'ある揮発性の物質 2.4 g を気体にしたところ、77℃、1.0×10⁵ Pa で 1.2 L を占めた。分子量は？', ref: 'p.45 類題2',
+          choices: ['58', '13', '50', '0.017'], answer: 0,
+          explain: 'M = 2.4 × 8.3×10³ × 350 ÷ (1.0×10⁵ × 1.2) ≈ 58\n（77℃ = 350 K。℃ のまま計算すると 13 になってしまう）' },
+        { q: 'm [g] の気体が、T [K]、p [Pa] で V [L] を占めた。分子量 M を表す式は？', ref: 'p.45 学んだことを説明してみよう2',
+          choices: ['M = mRT/(pV)', 'M = pV/(mRT)', 'M = mpV/(RT)', 'M = RT/(mpV)'], answer: 0,
+          explain: 'pV = (m/M)RT を M について解くと、M = mRT/(pV)。' },
       ],
     },
   },
@@ -324,6 +376,54 @@ const EN = {
         { q: 'A gas at 27 °C is heated to 327 °C at constant pressure. How does the volume change?', ref: 'p.40',
           choices: ['×2', '×12', '×1/2', 'about ×1.1'], answer: 0,
           explain: '300 K → 600 K doubles the absolute temperature, so the volume doubles. Never compare raw °C numbers.' },
+      ],
+    },
+
+    5: {
+      title: 'Avogadro: A Duel of Amounts',
+      topic: 'The ideal gas equation (pV = nRT) and molar mass',
+      pages: 'pp.44–45',
+      intro: [
+        { who: 'avogadro', face: 'normal', text: "I'm Avogadro. Let's duel by amount." },
+        { who: 'avogadro', face: 'smug', text: '1 mol = 6.0×10²³ particles' },
+        { lesson: 'Molar volume and the gas constant', ref: 'p.44 eq.(10)',
+          text: 'At 0 °C and 1.013×10⁵ Pa, 1 mol of gas occupies 22.4 L (molar volume).\nPutting this into pv/T = R gives\nR = 1.013×10⁵ × 22.4 ÷ 273 ≈ 8.31×10³ Pa·L/(mol·K)\nR is called the gas constant.' },
+        { lesson: 'The ideal gas equation', ref: 'p.44 eq.(11)', demo: DEMO.nDouble,
+          text: 'n mol of gas has volume V = nv. Substituting into pv = RT gives\npV = nRT\nOne equation links pressure, volume, amount and absolute temperature.' },
+        { lesson: 'Adding more gas', ref: 'p.44', demo: DEMO.nTriple,
+          text: 'Double the amount at constant volume and temperature and there are twice as many molecules hitting the walls.\nPressure is proportional to amount (p = nRT/V).' },
+        { lesson: 'Finding molar mass', ref: 'p.45 eq.(12)(13)',
+          text: 'Substitute n = m/M (m: mass [g], M: molar mass [g/mol]):\npV = (m/M)RT　→　M = mRT/(pV)\nWith density d = m/V:　M = dRT/p\nMeasure mass, pressure, volume and temperature to find the molar mass.' },
+        { who: 'avogadro', face: 'normal', text: 'Mole cards, ready!' },
+        { who: 'avogadro', face: 'smug', text: "I'll pump gas in and out" },
+      ],
+      outro: [
+        { who: 'avogadro', face: 'sweat', text: 'Calculation beats amount…' },
+        { who: 'avogadro', face: 'normal', text: "Don't forget pV = nRT." },
+        { who: 'avogadro', face: 'smug', text: "I'll join your side." },
+        { who: 'dalton', face: 'normal', text: 'Next, shall we mix gases?' },
+      ],
+      lose: { who: 'avogadro', face: 'smug', text: 'Not enough moles, friend.' },
+      kantei: 2,
+      quiz: [
+        { q: 'How many moles of gas occupy 8.3 L at 27 °C and 1.5×10⁵ Pa? (R = 8.3×10³ Pa·L/(mol·K))', ref: 'p.44 Q3',
+          choices: ['0.50 mol', '5.6 mol', '2.0 mol', '5.0×10² mol'], answer: 0,
+          explain: 'n = pV/(RT) = 1.5×10⁵ × 8.3 ÷ (8.3×10³ × 300) = 0.50 mol.\n(Using 27 instead of 300 K gives 5.6 mol.)' },
+        { q: 'What is the volume of 1 mol of gas at 0 °C and 1.013×10⁵ Pa (molar volume)?', ref: 'p.44',
+          choices: ['22.4 L', '22.4 mL', '2.24 L', '224 L'], answer: 0,
+          explain: 'Under these conditions the molar volume of any gas is about 22.4 L/mol.' },
+        { q: 'The amount of gas is doubled at constant volume and temperature. What happens to the pressure?', ref: 'p.44 eq.(11)',
+          choices: ['It doubles', 'It halves', 'It becomes 4×', 'No change'], answer: 0,
+          explain: 'From pV = nRT, p = nRT/V. With V and T fixed, pressure is proportional to amount.' },
+        { q: '10 g of a gas occupies 8.3 L at 27 °C and 1.0×10⁵ Pa. What is its molar mass?', ref: 'p.45 Example 2',
+          choices: ['30', '2.7', '0.033', '3.0×10²'], answer: 0,
+          explain: 'M = mRT/(pV) = 10 × 8.3×10³ × 300 ÷ (1.0×10⁵ × 8.3) = 30' },
+        { q: '2.4 g of a volatile substance, as a gas, occupies 1.2 L at 77 °C and 1.0×10⁵ Pa. What is its molar mass?', ref: 'p.45 Exercise 2',
+          choices: ['58', '13', '50', '0.017'], answer: 0,
+          explain: 'M = 2.4 × 8.3×10³ × 350 ÷ (1.0×10⁵ × 1.2) ≈ 58\n(77 °C = 350 K. Using °C gives 13.)' },
+        { q: 'm [g] of gas occupies V [L] at T [K] and p [Pa]. Which expression gives its molar mass M?', ref: 'p.45 Explain 2',
+          choices: ['M = mRT/(pV)', 'M = pV/(mRT)', 'M = mpV/(RT)', 'M = RT/(mpV)'], answer: 0,
+          explain: 'Solve pV = (m/M)RT for M: M = mRT/(pV).' },
       ],
     },
   },

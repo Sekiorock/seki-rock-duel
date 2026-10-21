@@ -2,14 +2,14 @@
 // v0.3：道場。v0.4：タイムアタック、今日の5問、昇段試験、段位と経験値、カードパック、称号、熟練度。
 // どのモードも同じ形（board, clock, over, tick, onJust, onMiss, onReroll, summary）で、画面側から同じように扱える。
 
-import { CONFIG } from './config.js?v=0.5.0';
-import { Board, Vitals } from './game.js?v=0.5.0';
-import { generateProblem } from './puzzle.js?v=0.5.0';
-import { createRng } from './rng.js?v=0.5.0';
-import { frac } from './frac.js?v=0.5.0';
-import { ARTS } from './chars.js?v=0.5.0';
-import { Bot } from './bots.js?v=0.5.0';
-import { TRICKS } from './battle.js?v=0.5.0';
+import { CONFIG } from './config.js?v=0.6.0';
+import { Board, Vitals } from './game.js?v=0.6.0';
+import { generateProblem } from './puzzle.js?v=0.6.0';
+import { createRng } from './rng.js?v=0.6.0';
+import { frac } from './frac.js?v=0.6.0';
+import { ARTS } from './chars.js?v=0.6.0';
+import { Bot } from './bots.js?v=0.6.0';
+import { TRICKS } from './battle.js?v=0.6.0';
 
 export class Dojo {
   constructor({ rng, preferModel }) {
@@ -95,7 +95,7 @@ export class Dojo {
 
     // 段階：ジャスト5回ごとに1つ上がる（最大6）
     const before = this.board.stage;
-    const maxStage = Math.max(...CONFIG.AVAILABLE_STAGES);
+    const maxStage = CONFIG.MAX_DOJO_STAGE;
     this.board.stage = Math.min(maxStage, D.START_STAGE + Math.floor(this.justs / D.JUSTS_PER_STAGE));
     const stageUp = this.board.stage > before;
 
@@ -203,7 +203,7 @@ export class TimeAttack {
     if (v.smart) this.smarts++;
     if (v.speed) this.speeds++;
     const before = this.board.stage;
-    const maxStage = Math.max(...CONFIG.AVAILABLE_STAGES);
+    const maxStage = CONFIG.MAX_DOJO_STAGE;
     this.board.stage = Math.min(maxStage, T.START_STAGE + Math.floor(this.justs / T.JUSTS_PER_STAGE));
     this.board.commitJust(result);
     this.vitals.onNewTarget(this.clock);
@@ -257,6 +257,7 @@ export function dailyProblems(key) {
       P: frac(10 + rng.int(21)),                       // 1.0〜3.0×10⁵ Pa
       V: frac(rng.pick([4, 6, 8, 12, 18])),            // 2.0〜9.0 L
       T: frac(rng.pick([200, 300, 400])),
+      N: frac(CONFIG.START_STATE.N),
     };
     const stage = D.STAGES[i];
     out.push({ stage, problem: generateProblem({ state, keep: null, stage, rng, preferModel: null }) });
@@ -425,7 +426,7 @@ export function earnedTitles(d) {
 }
 
 // ---------- 熟練度 ----------
-export const MASTERY_CARDS = ['vmul', 'vset', 'tset_k', 'tset_c'];
+export const MASTERY_CARDS = ['vmul', 'vset', 'tset_k', 'tset_c', 'nmul'];
 
 // 1回のデュエルを熟練度に記録する
 // types：出したカードの種類、traps：その問題の手札にあった罠の考え違い、ok：ジャストか、ms：かかった時間
@@ -556,4 +557,49 @@ export class StoryDuel {
       burst: this.vitals.isBurst(),
     };
   }
+}
+
+// ---------- 分子量の鑑定（v0.6、教科書 p.45 の M = mRT/(pV)） ----------
+// 質量・温度・圧力・体積から分子量を求め、どの気体かを見分ける問題を自動で作る
+export const KANTEI_GASES = [
+  { id: 'H2', M: 2.0 }, { id: 'He', M: 4.0 }, { id: 'CH4', M: 16 },
+  { id: 'N2', M: 28 }, { id: 'O2', M: 32 }, { id: 'CO2', M: 44 },
+];
+
+const sig2 = (x) => Number(x.toPrecision(2));
+// 有効数字2桁の表示（例：1.0×10⁵、8.3、0.83）
+export function sciText(x) {
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  if (e >= 4) {
+    const sup = String(e).split('').map((d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]).join('');
+    return `${(x / 10 ** e).toFixed(1)}×10${sup}`;
+  }
+  return x.toPrecision(2);
+}
+
+export function makeKantei(rng) {
+  const R = CONFIG.GAS_R;
+  for (let tries = 0; tries < 200; tries++) {
+    const gas = rng.pick(KANTEI_GASES);
+    const t = rng.pick([27, 77, 127]);
+    const T = t + CONFIG.KELVIN_OFFSET;
+    const p = rng.pick([5.0e4, 1.0e5, 2.0e5]);
+    const V = rng.pick([0.83, 1.66, 4.15, 8.3, 16.6]);
+    const m = sig2((p * V * gas.M) / (R * T)); // 測った質量（有効数字2桁）
+    if (m < 0.1 || m > 99) continue;
+    const M = (m * R * T) / (p * V);
+    // 求めた分子量が、正しい気体にだけはっきり近いこと
+    const near = KANTEI_GASES.filter((g) => Math.abs(M - g.M) / g.M < 0.06);
+    if (near.length !== 1 || near[0].id !== gas.id) continue;
+    // まちがいの選択肢：℃のまま計算したときに近い気体を優先し、残りはほかの気体
+    const wrongCelsius = (m * R * t) / (p * V);
+    const others = KANTEI_GASES.filter((g) => g.id !== gas.id);
+    const trap = others.slice().sort((a, b) => Math.abs(a.M - wrongCelsius) - Math.abs(b.M - wrongCelsius))[0];
+    const rest = rng.shuffle(others.filter((g) => g.id !== trap.id)).slice(0, 2);
+    return {
+      gas: gas.id, t, T, m: String(m), p: sciText(p), V: String(V),
+      M: Number(M.toPrecision(2)), choices: [gas.id, trap.id, ...rest.map((g) => g.id)],
+    };
+  }
+  throw new Error('鑑定の問題を作れなかった');
 }

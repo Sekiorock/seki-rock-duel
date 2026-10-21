@@ -39,10 +39,12 @@ export const ARTS = [
   { id: 'char_vdw', rarity: 'rare', ja: 'ファンデルワールス', en: 'van der Waals', char: 'vdw', expr: 'normal' },
   { id: 'char_fahrenheit', rarity: 'rare', ja: 'ファーレンハイト', en: 'Fahrenheit', char: 'fahrenheit', expr: 'smug' },
   { id: 'char_dalton', rarity: 'rare', ja: 'ドルトン', en: 'Dalton', char: 'dalton', expr: 'normal' },
+  { id: 'char_avogadro', rarity: 'rare', ja: 'アボガドロ', en: 'Avogadro', char: 'avogadro', expr: 'smug' },
   { id: 'kimo_bombe', rarity: 'kimo', ja: 'ジト目ボンベ', en: 'Side-eye Cylinder' },
   { id: 'kimo_boyle', rarity: 'kimo', ja: 'むにゅっとボイル', en: 'Squished Boyle', char: 'boyle', expr: 'sweat' },
   { id: 'kimo_celsius', rarity: 'kimo', ja: '白目セルシウス', en: 'White-eyed Celsius', char: 'celsius', expr: 'whiteeye' },
   { id: 'kimo_kelvin', rarity: 'kimo', ja: '昇天ケルビン', en: 'Ascending Kelvin', char: 'kelvin', expr: 'ascend' },
+  { id: 'kimo_avogadro', rarity: 'kimo', ja: '白目アボガドロ', en: 'White-eyed Avogadro', char: 'avogadro', expr: 'whiteeye' },
   { id: 'kimo_thermo', rarity: 'kimo', ja: 'べろ出し温度計', en: 'Tongue-out Thermometer' },
   { id: 'kimo_molecule', rarity: 'kimo', ja: '目玉の分子', en: 'Eyeball Molecule' },
 ];
@@ -501,7 +503,7 @@ function arrow(ctx, x1, y1, x2, y2, u, color) {
 // 太い輪郭線（ネイビー）、ジト目、左右で大きさの違う目、目の下のクマ。
 // 表情：normal（ふつう）/ smug（ドヤ顔）/ sweat（冷や汗）/ whiteeye（白目）/ ascend（昇天）
 // =========================================================
-export const CHARS = ['boyle', 'charles', 'kelvin', 'celsius', 'vdw', 'fahrenheit', 'dalton'];
+export const CHARS = ['boyle', 'charles', 'kelvin', 'celsius', 'vdw', 'fahrenheit', 'dalton', 'avogadro'];
 export const EXPRS = ['normal', 'smug', 'sweat', 'whiteeye', 'ascend'];
 
 // 目。lid：まぶたの下がり具合（0〜1）、look：黒目の向き
@@ -720,6 +722,35 @@ export function drawChar(ctx, id, expr = 'normal', cx = 50, cy = 50, size = 100,
       charEye(ctx, 10 * u, -2 * u, 5.5 * u, u, E, 0.35);
       charMouth(ctx, 0, 13 * u, 7 * u, u, E);
       if (E === 'sweat') sweatDrops(ctx, 22 * u, -6 * u, u);
+      break;
+    }
+    case 'avogadro': {
+      // アボカド型の体。お腹の種に「mol」。物質量の精（v0.6、5章の相手）
+      ctx.fillStyle = NAVY;
+      rr(ctx, -2 * u, -54 * u, 4 * u, 10 * u, 2 * u); ctx.fill();
+      ctx.fillStyle = MID; ctx.strokeStyle = NAVY; ctx.lineWidth = 2.4 * u;
+      ctx.beginPath(); ctx.ellipse(8 * u, -50 * u, 9 * u, 4 * u, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      const pear = () => {
+        ctx.beginPath();
+        ctx.moveTo(0, -46 * u);
+        ctx.bezierCurveTo(16 * u, -46 * u, 18 * u, -22 * u, 26 * u, -2 * u);
+        ctx.bezierCurveTo(36 * u, 22 * u, 22 * u, 44 * u, 0, 44 * u);
+        ctx.bezierCurveTo(-22 * u, 44 * u, -36 * u, 22 * u, -26 * u, -2 * u);
+        ctx.bezierCurveTo(-18 * u, -22 * u, -16 * u, -46 * u, 0, -46 * u);
+        ctx.closePath();
+      };
+      ctx.fillStyle = PALE; ctx.strokeStyle = NAVY; ctx.lineWidth = 3.4 * u;
+      pear(); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.translate(0, 3 * u); ctx.scale(0.8, 0.84); ctx.fillStyle = WHITE; pear(); ctx.fill(); ctx.restore();
+      ctx.fillStyle = BLUE; ctx.strokeStyle = NAVY; ctx.lineWidth = 2.6 * u;
+      ctx.beginPath(); ctx.arc(0, 20 * u, 13 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = WHITE; ctx.font = `900 ${8 * u}px system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('mol', 0, 20.5 * u);
+      charEye(ctx, -8 * u, -18 * u, 6.5 * u, u, E, 0.3);
+      charEye(ctx, 9 * u, -17 * u, 5 * u, u, E, 0.35);
+      charMouth(ctx, 0, -4 * u, 6 * u, u, E);
+      if (E === 'sweat') sweatDrops(ctx, 24 * u, -30 * u, u);
       break;
     }
     default: break;

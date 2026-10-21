@@ -3,16 +3,19 @@
 
 export const CONFIG = {
   // タイトル画面の下に出す版番号（13.3 の付け方に従う）
-  VERSION: 'v0.5.0',
+  VERSION: 'v0.6.0',
 
   // ---- ボンベの状態（4.1） ----
   // 圧力 P は 0.1×10⁵ Pa を 1 とする整数、体積 V は 0.5 L を 1 とする整数、温度 T は K の整数
-  START_STATE: { P: 10, V: 12, T: 300 },     // 1.0×10⁵ Pa, 6.0 L, 300 K
+  START_STATE: { P: 10, V: 12, T: 300, N: 6 }, // 1.0×10⁵ Pa, 6.0 L, 300 K、物質量は 6（相対の値）
   P_MIN: 5,                                   // 0.5×10⁵ Pa
   P_MAX: 90,                                  // 9.0×10⁵ Pa
   VOLUME_UNITS: [2, 3, 4, 6, 8, 9, 12, 18, 24], // 1.0, 1.5, 2.0, 3.0, 4.0, 4.5, 6.0, 9.0, 12 L
   TEMPS_K: [150, 200, 300, 400, 450, 600],
   KELVIN_OFFSET: 273,                         // 0℃ = 273 K
+  MOL_UNITS: [2, 3, 4, 6, 8, 9, 12, 18],      // 物質量の取りうる値（開始時 6 に対して 1/3〜3 倍）
+  NMUL_FACTORS: [[2, 1], [3, 1], [1, 2], [1, 3], [3, 2], [2, 3]], // 物質量カードの倍率
+  GAS_R: 8.3e3,                               // 気体定数 R [Pa·L/(mol·K)]（教科書の問題と同じ有効数字2桁）
 
   // ---- カード（4.2） ----
   VMUL_FACTORS: [[2, 1], [3, 1], [1, 2], [1, 3], [3, 2], [2, 3]], // 体積カードの倍率 [分子, 分母]
@@ -57,15 +60,27 @@ export const CONFIG = {
       decoys: [['vmul', 2], ['vset', 1], ['tset_k', 1], ['tset_c', 2]],
       trapMin: 2,
     },
+    // v0.6：物質量カード（pV = nRT）
+    7: {
+      minCards: 2,
+      patterns: [
+        [['nmul', 'vmul'], 2],
+        [['nmul', 'tset_k'], 2],
+        [['nmul', 'tset_c'], 1],
+      ],
+      decoys: [['nmul', 2], ['vmul', 2], ['tset_k', 1], ['tset_c', 1]],
+      trapMin: 2,
+    },
   },
-  AVAILABLE_STAGES: [1, 2, 3, 4, 5, 6],
+  AVAILABLE_STAGES: [1, 2, 3, 4, 5, 6, 7],
+  MAX_DOJO_STAGE: 6,          // 道場・タイムアタックで上がっていく段階の上限（物質量カードは v0.8 の総まとめで加える）
 
   // ---- 問題の生成（4.4） ----
   MAX_ATTEMPTS: 200,  // この回数作り直してもだめなら「換気」して開始状態から作る
   COMBO_TRIES: 60,    // 正解の組み合わせを1つ作るときの試行回数
 
   // ---- 考え違い（4.5）。上にあるものを優先して推定する ----
-  MISTAKE_MODELS: ['inverse_v', 'celsius', 'inverse_t', 'ignore_t'],
+  MISTAKE_MODELS: ['inverse_v', 'celsius', 'inverse_t', 'ignore_t', 'inverse_n'],
   MISTAKE_HISTORY: 20, // 直近何回のハズレを覚えておくか
 
   // ---- 演出の時間（ミリ秒、5.3） ----
@@ -104,7 +119,7 @@ export const CONFIG = {
     METER_MISS: 15,            // ハズレ
     METER_REROLL: 8,           // 引き直し
     // 自然上昇：+1 になるまでの時間（ミリ秒）。段階が上がるほど速い
-    RISE_MS_BY_STAGE: { 1: 2200, 2: 1800, 3: 1500, 4: 1250, 5: 1000, 6: 850 },
+    RISE_MS_BY_STAGE: { 1: 2200, 2: 1800, 3: 1500, 4: 1250, 5: 1000, 6: 850, 7: 1250 },
     LATE_START_MS: 150000,     // 2分半を過ぎたら
     LATE_FACTOR_PER_MIN: 0.7,  // 1分ごとに、上昇の間隔を 0.7 倍にする（決着を促す）
     CHAIN_TIMEOUT_MS: 20000,   // 前のジャストから20秒で連鎖が切れる
@@ -180,7 +195,7 @@ export const CONFIG = {
     },
     // 問題の段階ごとに、解く時間に掛ける倍率（段階1〜6）
     // 仕様は「1段階ごとに10%長く」だが、人は2枚・3枚の問題で大きく時間がかかるので、それに合わせた
-    STAGE_FACTOR: [1, 1.35, 1.3, 1.75, 2.1, 2.7],
+    STAGE_FACTOR: [1, 1.35, 1.3, 1.75, 2.1, 2.7, 1.9],
   },
 
   // ---- ストーリー（5.5）。v0.5 は1〜4章。5章以降は v0.6〜v0.8 で追加する ----
@@ -191,10 +206,10 @@ export const CONFIG = {
       { id: 2, char: 'charles', stages: [3], need: 5, level: 'novice', speed: 0.9, trick: 'swap_target', trickMs: 26000 },
       { id: 3, char: 'kelvin', stages: [4], need: 5, level: 'regular', speed: 1.3, trick: 'frost', trickMs: 22000 },
       { id: 4, char: 'celsius', stages: [5], need: 7, level: 'regular', speed: 1.2, trick: 'to_celsius', trickMs: 18000 },
+      { id: 5, char: 'avogadro', stages: [7], need: 5, level: 'regular', speed: 1.2, trick: 'leak', trickMs: 24000 },
     ],
     // これから追加する章（単元全体の地図として、章の一覧に表示する）
     FUTURE: [
-      { id: 5, char: null, ver: 'v0.6', pages: '44-45' },
       { id: 6, char: 'dalton', ver: 'v0.7', pages: '46-49' },
       { id: 7, char: 'vdw', ver: 'v0.8', pages: '50-53' },
       { id: 8, char: 'fahrenheit', ver: 'v0.8', pages: '' },

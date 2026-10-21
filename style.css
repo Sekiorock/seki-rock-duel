@@ -1109,3 +1109,23 @@ html[lang="en"] .title { font-size: 28px; }
 .lesson { justify-content: center; }
 .lesson .lesson-text { flex: none; }
 .lesson .bubble-next { position: absolute; right: 16px; bottom: 10px; }
+
+/* 物質量 n も表示するとき（段階7〜）は、状態の文字を少し小さく */
+.state-text.with-n { font-size: 14px; }
+.state-text.with-n span { margin: 0 4px; }
+@media (max-width: 360px) { .state-text.with-n { font-size: 12px; } .state-text.with-n span { margin: 0 2px; } }
+
+/* v0.6 */
+.talk-top .topbar-right { gap: 8px; }
+#screen-pack .lang-btn, #screen-pack .icon-btn { background: var(--white); }
+#screen-result .result-wrap { padding-top: 0; }
+.kantei-btn { width: 100%; margin-top: 14px; }
+.kantei-btn.locked { opacity: 0.5; }
+#screen-select { overflow-y: auto; }
+/* スクロールする画面では、中身が縦に潰れないようにする */
+.screen.scroll > * { flex-shrink: 0; }
+.talk-top { gap: 8px; }
+.talk-chapter { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.talk-top .sub-btn { white-space: nowrap; }
+.talk-top .topbar-right { flex: none; }
+.lesson-state { white-space: nowrap; font-size: clamp(11.5px, 3.6vw, 15px); }

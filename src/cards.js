@@ -1,14 +1,16 @@
 // カードの種類と、ボンベへの効果の計算。
-// 状態は { P, V, T } で、どれも分数（frac.js）。
+// 状態は { P, V, T, N } で、どれも分数（frac.js）。
+// N は物質量（v0.6〜）。開始時の物質量を 6 とする相対の値（6 → 12 で 2 倍）。実際の mol は pV/(RT) で表示する。
 
-import { frac, mul, div, isInt } from './frac.js?v=0.5.0';
-import { CONFIG } from './config.js?v=0.5.0';
+import { frac, mul, div, isInt } from './frac.js?v=0.6.0';
+import { CONFIG } from './config.js?v=0.6.0';
 
 // ---- カードを作る ----
 export const vmul = (num, den) => ({ type: 'vmul', num, den });   // 体積を num/den 倍
 export const vset = (v) => ({ type: 'vset', v });                 // 体積を v（0.5 L 単位）にする
 export const tsetK = (k) => ({ type: 'tset_k', k });              // 温度を k [K] にする
 export const tsetC = (k) => ({ type: 'tset_c', k });              // 温度を k [K] にする（℃で表記）
+export const nmul = (num, den) => ({ type: 'nmul', num, den });   // 物質量を num/den 倍（気体を入れる・抜く）
 
 export const frost = () => ({ type: 'frost' });                    // おじゃまカード：霜（場に置けない）
 export const isTempCard = (c) => !!c && CONFIG.TEMP_TYPES.includes(c.type);
@@ -17,12 +19,15 @@ export const celsiusOf = (k) => k - CONFIG.KELVIN_OFFSET;
 
 export function startState() {
   const s = CONFIG.START_STATE;
-  return { P: frac(s.P), V: frac(s.V), T: frac(s.T) };
+  return { P: frac(s.P), V: frac(s.V), T: frac(s.T), N: frac(s.N) };
 }
+
+const nOf = (s) => s.N || frac(CONFIG.START_STATE.N);
 
 export const isValidV = (V) => isInt(V) && CONFIG.VOLUME_UNITS.includes(V.n);
 export const isValidT = (T) => isInt(T) && CONFIG.TEMPS_K.includes(T.n);
 export const isValidP = (P) => isInt(P) && P.n >= CONFIG.P_MIN && P.n <= CONFIG.P_MAX;
+export const isValidN = (N) => !N || (isInt(N) && CONFIG.MOL_UNITS.includes(N.n));
 
 // 出し方のきまり：温度カードは1回に1枚まで
 export function isLegalPlay(cards) {
@@ -31,11 +36,14 @@ export function isLegalPlay(cards) {
 
 // ---- 計算 ----
 // model を指定すると、考え違いのモデル（4.5）で計算する。null なら正しい計算。
-//   正しい計算：P後 = P × (V前 / V後) × (T後 / T前)
+//   正しい計算：P後 = P × (n後 / n前) × (V前 / V後) × (T後 / T前)   （pV = nRT より p ∝ nT/V）
 export function applyCard(s, card, model = null) {
   let V2 = s.V;
   let T2 = s.T;
+  const N = nOf(s);
+  let N2 = N;
   if (card.type === 'vmul') V2 = mul(s.V, frac(card.num, card.den));
+  else if (card.type === 'nmul') N2 = mul(N, frac(card.num, card.den));
   else if (card.type === 'vset') V2 = frac(card.v);
   else if (card.type === 'tset_k') T2 = frac(card.k);
   else if (card.type === 'tset_c') T2 = model === 'celsius' ? frac(celsiusOf(card.k)) : frac(card.k);
@@ -43,7 +51,8 @@ export function applyCard(s, card, model = null) {
 
   const vRatio = model === 'inverse_v' ? div(V2, s.V) : div(s.V, V2);
   const tRatio = model === 'inverse_t' ? div(s.T, T2) : div(T2, s.T);
-  return { P: mul(mul(s.P, vRatio), tRatio), V: V2, T: T2 };
+  const nRatio = model === 'inverse_n' ? div(N, N2) : div(N2, N);
+  return { P: mul(mul(mul(s.P, vRatio), tRatio), nRatio), V: V2, T: T2, N: N2 };
 }
 
 // 左の枠から順に適用。途中で体積・温度が決まった値から外れたら valid=false（ハズレ扱い）
@@ -54,7 +63,7 @@ export function applySequence(s, cards, model = null) {
   const steps = [];
   for (const c of cards) {
     cur = applyCard(cur, c, model);
-    if (!model && (!isValidV(cur.V) || !isValidT(cur.T))) valid = false;
+    if (!model && (!isValidV(cur.V) || !isValidT(cur.T) || !isValidN(cur.N))) valid = false;
     steps.push(cur);
   }
   return { state: cur, valid, steps };
@@ -76,6 +85,8 @@ export function cardLines(card) {
       const c = celsiusOf(card.k);
       return { top: 'T →', bottom: `${c < 0 ? '−' + Math.abs(c) : c}℃` };
     }
+    case 'nmul':
+      return { top: 'n', bottom: card.den === 1 ? `×${card.num}` : `×${card.num}/${card.den}` };
     case 'frost':
       return { top: '❄', bottom: '' };
     default:

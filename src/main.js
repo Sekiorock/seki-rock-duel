@@ -1,32 +1,32 @@
 // 全体の進行（画面の切り替え）と、盤面の表示・タッチ操作。
 // 練習室・道場・タイムアタック・今日の5問・昇段試験は、同じプレイ画面を使う（run.kind で切り替える）。
 
-import { CONFIG } from './config.js?v=0.5.0';
-import { TEXT, formatP, formatV, formatT, setLang, getLang, LANGS } from './text.js?v=0.5.0';
-import { toNumber } from './frac.js?v=0.5.0';
-import { createRng, randomSeed } from './rng.js?v=0.5.0';
-import { cardLines, isTempCard } from './cards.js?v=0.5.0';
-import { trapModelsInHand } from './puzzle.js?v=0.5.0';
+import { CONFIG } from './config.js?v=0.6.0';
+import { TEXT, formatP, formatV, formatT, formatMol, setLang, getLang, LANGS } from './text.js?v=0.6.0';
+import { toNumber } from './frac.js?v=0.6.0';
+import { createRng, randomSeed } from './rng.js?v=0.6.0';
+import { cardLines, isTempCard } from './cards.js?v=0.6.0';
+import { trapModelsInHand } from './puzzle.js?v=0.6.0';
 import {
-  Dojo, PracticeRun, TimeAttack, DailyRun, ExamRun, StoryDuel, chapterOf, dateKey,
+  Dojo, PracticeRun, TimeAttack, DailyRun, ExamRun, StoryDuel, chapterOf, dateKey, makeKantei,
   rankProgress, examAvailable, dojoExp, taExp, dailyExp, rollPack, earnedTitles, TITLES,
   addMastery, masteryStars, MASTERY_CARDS,
-} from './solo.js?v=0.5.0';
-import { BombeView, FxLayer } from './render.js?v=0.5.0';
-import { AudioEngine } from './audio.js?v=0.5.0';
-import { Music } from './music.js?v=0.5.0';
-import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=0.5.0';
-import { STORY_TEXT } from './story_text.js?v=0.5.0';
+} from './solo.js?v=0.6.0';
+import { BombeView, FxLayer } from './render.js?v=0.6.0';
+import { AudioEngine } from './audio.js?v=0.6.0';
+import { Music } from './music.js?v=0.6.0';
+import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=0.6.0';
+import { STORY_TEXT } from './story_text.js?v=0.6.0';
 import {
   migrate, loadSettings, saveSettings, recordMistake, favoriteMistake,
   loadRecords, saveRecords, loadProfile, saveProfile, loadCollection, saveCollection,
   loadTitles, saveTitles, loadMastery, saveMastery, loadStory, saveStory,
-} from './storage.js?v=0.5.0';
+} from './storage.js?v=0.6.0';
 
 const $ = (id) => document.getElementById(id);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const vibrate = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* 対応していない端末 */ } };
-const num = (s) => ({ P: toNumber(s.P), V: toNumber(s.V), T: toNumber(s.T) });
+const num = (s) => ({ P: toNumber(s.P), V: toNumber(s.V), T: toNumber(s.T), N: s.N ? toNumber(s.N) : CONFIG.START_STATE.N });
 const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
 const replay = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -108,6 +108,11 @@ function toggleLang() {
   if (!$('screen-result').hidden && lastResult) renderResult(lastResult);
   if (!$('screen-records').hidden) renderRecords();
   if (!$('screen-collection').hidden) renderCollection();
+  if (!$('screen-story').hidden) renderStoryMap();
+  if (!$('screen-select').hidden) renderSelect();
+  if (!$('screen-talk').hidden && talk) { renderTalkTitle(); renderPanel(); }
+  if (!$('screen-quiz').hidden && quiz) renderQuestion(true);
+  if (!$('screen-pack').hidden) renderPackTags();
 }
 document.querySelectorAll('[data-lang-toggle]').forEach((b) => {
   b.addEventListener('pointerdown', () => vibrate(CONFIG.VIBRATE_TAP_MS));
@@ -224,7 +229,13 @@ pressable($('btn-story'), () => { renderStoryMap(); show('screen-story'); });
 function dailyUnlocked() {
   return loadRecords().dojoPlays >= 1 || !!loadStory().cleared[2];
 }
-pressable($('btn-practice'), () => show('screen-select'));
+pressable($('btn-practice'), () => { renderSelect(); show('screen-select'); });
+// 練習室の「分子量の鑑定」は、ストーリー5章をクリアすると開く
+function renderSelect() {
+  const open = !!loadStory().cleared[5];
+  $('btn-kantei').classList.toggle('locked', !open);
+  $('kantei-sub').textContent = open ? TEXT.kanteiDesc : TEXT.kanteiLocked;
+}
 pressable($('btn-collection'), () => { renderCollection(); show('screen-collection'); });
 pressable($('btn-records'), () => { renderRecords(); show('screen-records'); });
 pressable($('rank-chip'), () => { renderRecords(); show('screen-records'); });
@@ -419,7 +430,9 @@ function useTrick() {
   if (r.type === 'swap_target') { replay(document.querySelector('.target-card'), 'pop'); targetWall = performance.now(); }
   const msg = TEXT.trickMsg[r.type](TEXT.charNames[run.ch.char]);
   showBanner(msg);
-  showMessage(r.type === 'frost' ? TEXT.frostHint : msg, 'show', CONFIG.ANIM.NOTICE_MS);
+  const note = r.type === 'frost' ? TEXT.frostHint : r.type === 'leak' ? (r.dir === 'in' ? TEXT.leakIn : TEXT.leakOut) : msg;
+  showMessage(note, 'show', CONFIG.ANIM.NOTICE_MS);
+  if (r.type === 'leak') { replay(document.querySelector('.target-card'), 'pop'); targetWall = performance.now(); }
 }
 
 function updateHud() {
@@ -543,8 +556,12 @@ function renderAll() {
 }
 
 function renderState(s) {
+  // 物質量カードがある段階（7〜）では、物質量 n = pV/(RT) も表示する
+  const showN = board && board.stage >= 7;
   $('state-text').innerHTML =
-    `<span><i>P</i>${formatP(s.P)}</span><span><i>V</i>${formatV(s.V)}</span><span><i>T</i>${formatT(s.T)}</span>`;
+    `<span><i>P</i>${formatP(s.P)}</span><span><i>V</i>${formatV(s.V)}</span><span><i>T</i>${formatT(s.T)}</span>`
+    + (showN ? `<span><i>n</i>${formatMol(s)}</span>` : '');
+  $('state-text').classList.toggle('with-n', !!showN);
 }
 
 function showMessage(text, kind = 'show', ms = 0) {
@@ -611,6 +628,8 @@ const ICONS = {
   vset: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="7" width="14" height="11" rx="2" fill="none" stroke="#1B2A49" stroke-width="2"/><rect x="4.5" y="9" width="11" height="3" fill="#2F6FED"/><path d="M10 9V3" stroke="#1B2A49" stroke-width="2" stroke-linecap="round"/><path d="M1 10.5h2M17 10.5h2" stroke="#2F6FED" stroke-width="2"/></svg>',
   // 温度カード（K）：温度計
   tset_k: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3a2 2 0 0 1 4 0v9.3a4 4 0 1 1-4 0z" fill="#fff" stroke="#1B2A49" stroke-width="2"/><circle cx="10" cy="15" r="2.2" fill="#2F6FED"/><path d="M10 13V7" stroke="#2F6FED" stroke-width="2"/><path d="M13 5h2M13 8h2M13 11h2" stroke="#1B2A49" stroke-width="1.5"/></svg>',
+  // 物質量カード：粒の集まり
+  nmul: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="6" cy="7" r="3" fill="#2F6FED" stroke="#1B2A49" stroke-width="1.5"/><circle cx="13" cy="6" r="3" fill="#DCE7FD" stroke="#1B2A49" stroke-width="1.5"/><circle cx="9" cy="13" r="3" fill="#2F6FED" stroke="#1B2A49" stroke-width="1.5"/><circle cx="15.5" cy="13.5" r="2.5" fill="#fff" stroke="#1B2A49" stroke-width="1.5"/></svg>',
   // 温度カード（℃）：目盛りが途中でずれた温度計（セルシウスの罠の目印）
   tset_c: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3a2 2 0 0 1 4 0v9.3a4 4 0 1 1-4 0z" fill="#fff" stroke="#1B2A49" stroke-width="2"/><circle cx="10" cy="15" r="2.2" fill="#2F6FED"/><path d="M10 13V7" stroke="#2F6FED" stroke-width="2"/><path d="M13 4h2M13 7h2M14 9.5h3M14 12h3" stroke="#1B2A49" stroke-width="1.5"/></svg>',
 };
@@ -1071,7 +1090,7 @@ function finishRun(natural) {
   if (kind === 'story' && sum.won) {
     // 勝利 → 章の終わりの会話 → 確認問題（説明してみよう） → 結果
     const ct = storyText().chapters[sum.chapter];
-    playTalk(sum.chapter, ct.outro, () => startQuiz(sum.chapter, () => showResultScreen(res)));
+    playTalk(sum.chapter, 'outro', () => startQuiz(sum.chapter, () => showResultScreen(res)));
     return;
   }
   showResultScreen(res);
@@ -1265,6 +1284,21 @@ function openPack(from) {
   checkTitles();
 }
 
+// 言語を切り替えたとき、パックのカードの名前とレア度を入れ替える
+function renderPackTags() {
+  [...$('pack-cards').children].forEach((el, i) => {
+    const pc = packCards[i];
+    if (!pc) return;
+    const art = ART_BY_ID[pc.id];
+    const tag = el.querySelector('.tag');
+    if (tag) tag.textContent = art[getLang()] || art.ja;
+    const pop = el.querySelector('.rarity-pop');
+    if (pop) pop.textContent = TEXT.rarity[art.rarity];
+    const nw = el.querySelector('.new');
+    if (nw) nw.textContent = TEXT.newCard;
+  });
+}
+
 function flipPackCard(i) {
   const pc = packCards[i];
   if (!pc || pc.open) return;
@@ -1452,7 +1486,6 @@ function renderStoryMap() {
     const done = !!st.cleared[c.id];
     const q = st.quiz[c.id];
     const tags = [
-      `<span class="tag">${TEXT.lessonRef(t.pages)}</span>`,
       done ? `<span class="tag done">${TEXT.chapterCleared}</span>` : open ? `<span class="tag new">${TEXT.chapterNew}</span>` : '',
       q ? `<span class="tag">${TEXT.quizScore(q.first, q.total)}</span>` : '',
     ].join('');
@@ -1466,7 +1499,7 @@ function renderStoryMap() {
     const no = f.id === 8 ? TEXT.hiddenChapter : TEXT.chapterN(f.id);
     return `<div class="chapter future"><canvas data-char="${f.char || ''}"></canvas>
       <span><span class="ch-no">${no}</span><b>${esc(t.title)}</b><small>${esc(t.topic)}</small>
-      <span class="ch-tags">${t.pages ? `<span class="tag">${TEXT.lessonRef(t.pages)}</span>` : ''}<span class="tag">${TEXT.chapterComing(f.ver)}</span></span></span></div>`;
+      <span class="ch-tags"><span class="tag">${TEXT.chapterComing(f.ver)}</span></span></span></div>`;
   });
   $('chapter-list').innerHTML = rows.join('') + future.join('');
   requestAnimationFrame(() => {
@@ -1487,7 +1520,7 @@ function renderStoryMap() {
 function startChapter(id) {
   const ct = storyText().chapters[id];
   playSong('practice');
-  playTalk(id, ct.intro, () => {
+  playTalk(id, 'intro', () => {
     const st = loadStory();
     st.seen[id] = true;
     saveStory(st);
@@ -1501,21 +1534,32 @@ let talk = null;
 let lessonView = null;
 let demoTimer = null;
 
-function playTalk(chapterId, panels, onDone) {
-  talk = { chapterId, panels, i: 0, onDone };
+// part：'intro'（章の前）か 'outro'（章の後）。文言は表示のたびに今の言語で取り出す
+function playTalk(chapterId, part, onDone) {
+  talk = { chapterId, part, i: 0, onDone };
   show('screen-talk');
-  $('talk-chapter').textContent = `${TEXT.chapterN(chapterId)}　${storyText().chapters[chapterId].title}`;
+  renderTalkTitle();
   renderPanel();
 }
+function renderTalkTitle() {
+  $('talk-chapter').textContent = `${TEXT.chapterN(talk.chapterId)}　${storyText().chapters[talk.chapterId].title}`;
+}
+const talkPanels = () => storyText().chapters[talk.chapterId][talk.part];
 
 function fmtDemo(st) {
   const t = Math.round(st.T);
-  return `P ${(st.P / 10).toFixed(1)}×10⁵ Pa　V ${(st.V / 2).toFixed(1)} L　T ${t} K（${t - 273}℃）`;
+  const base = `P ${(st.P / 10).toFixed(1)}×10⁵ Pa　V ${(st.V / 2).toFixed(1)} L　T ${t} K`;
+  // 物質量が変わる解説（5章〜）では n も出す。n = pV/(RT)
+  if (st.N !== undefined) {
+    const n = (st.P * 1e4 * (st.V / 2)) / (CONFIG.GAS_R * st.T);
+    return `${base}　n ${n.toPrecision(2)} mol`;
+  }
+  return `${base}（${t - 273}℃）`;
 }
 
 function renderPanel() {
   clearInterval(demoTimer);
-  const p = talk.panels[talk.i];
+  const p = talkPanels()[talk.i];
   const lesson = $('lesson');
   const bubble = $('bubble');
   if (p.lesson) {
@@ -1564,7 +1608,7 @@ function nextPanel() {
   if (!talk) return;
   audio.click();
   talk.i++;
-  if (talk.i >= talk.panels.length) return endTalk();
+  if (talk.i >= talkPanels().length) return endTalk();
   renderPanel();
 }
 function endTalk() {
@@ -1577,70 +1621,118 @@ $('talk-stage').addEventListener('click', nextPanel);
 $('bubble').addEventListener('click', nextPanel);
 $('btn-skip').addEventListener('click', (e) => { e.stopPropagation(); endTalk(); });
 
-// ---------- 確認問題（説明してみよう） ----------
+// ---------- 確認問題（説明してみよう）と、分子量の鑑定 ----------
+// 問題は { fixed: 番号 }（story_text.js の問題）か { kantei: データ }（自動で作る鑑定）。
+// 文言は表示のたびに今の言語で組み立てるので、途中で言語を切り替えても続きから解ける。
 let quiz = null;
+
 function startQuiz(chapterId, onDone) {
-  const items = storyText().chapters[chapterId].quiz;
-  quiz = { chapterId, items, i: 0, first: 0, tries: 0, onDone };
+  const ch = storyText().chapters[chapterId];
+  const rng = createRng(randomSeed());
+  const items = ch.quiz.map((_, i) => ({ fixed: i }));
+  for (let k = 0; k < (ch.kantei || 0); k++) items.push({ kantei: makeKantei(rng) });
+  quiz = { mode: 'story', chapterId, items, i: 0, first: 0, onDone };
+  $('btn-quiz-back').hidden = true;
   show('screen-quiz');
   playSong('practice');
+  beginQuestion();
+}
+
+// 練習室の「分子量の鑑定」：終わりなく出題する
+function startKantei() {
+  quiz = { mode: 'kantei', items: [{ kantei: makeKantei(createRng(randomSeed())) }], i: 0, first: 0, onDone: null };
+  $('btn-quiz-back').hidden = false;
+  show('screen-quiz');
+  playSong('practice');
+  beginQuestion();
+}
+pressable($('btn-kantei'), () => { if (loadStory().cleared[5]) startKantei(); else toast(TEXT.kanteiLocked); });
+$('btn-quiz-back').addEventListener('click', () => { quiz = null; stopSong(); renderSelect(); show('screen-select'); });
+
+function itemView(item) {
+  if (item.kantei) {
+    const d = item.kantei;
+    return {
+      q: TEXT.kanteiQ(d.m, d.t, d.p, d.V),
+      choices: d.choices.map((id) => TEXT.gases[id]),
+      answer: 0,
+      explain: TEXT.kanteiExplain(d.m, d.t, d.T, d.p, d.V, d.M, TEXT.gases[d.gas]),
+      ref: 'p.45 (12)式',
+    };
+  }
+  return storyText().chapters[quiz.chapterId].quiz[item.fixed];
+}
+
+function beginQuestion() {
+  const it = itemView(quiz.items[quiz.i]);
+  // 選択肢の並びは問題ごとにシャッフルし、言語を切り替えても同じ並びのままにする
+  quiz.order = createRng(randomSeed()).shuffle(it.choices.map((_, k) => k));
+  quiz.wrongs = [];
+  quiz.solved = false;
   renderQuestion();
+  $('screen-quiz').scrollTop = 0;
 }
 
 function renderQuestion() {
-  const it = quiz.items[quiz.i];
-  quiz.tries = 0;
-  $('quiz-count').textContent = `${quiz.i + 1} / ${quiz.items.length}`;
+  const it = itemView(quiz.items[quiz.i]);
+  const total = quiz.items.length;
+  $('quiz-count').textContent = quiz.mode === 'kantei' ? TEXT.kanteiCount(quiz.i + 1) : `${quiz.i + 1} / ${total}`;
+  document.querySelector('#screen-quiz .quiz-head b').textContent = quiz.mode === 'kantei' || quiz.items[quiz.i].kantei ? TEXT.kantei : TEXT.quizTitle;
   $('quiz-ref').textContent = it.ref ? TEXT.lessonRef(it.ref) : '';
   $('quiz-q').textContent = it.q;
-  $('quiz-feedback').hidden = true;
-  $('btn-quiz-next').hidden = true;
-  // 選択肢の並びは毎回シャッフルする
-  const order = createRng(randomSeed()).shuffle(it.choices.map((_, k) => k));
   const box = $('quiz-choices');
   box.innerHTML = '';
-  order.forEach((k) => {
+  quiz.order.forEach((k) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'quiz-choice';
     b.textContent = it.choices[k];
-    b.addEventListener('click', () => answer(k, b));
+    if (quiz.solved) { b.disabled = true; if (k === it.answer) b.classList.add('right'); }
+    if (quiz.wrongs.includes(k)) { b.disabled = true; b.classList.add('wrong'); }
+    b.addEventListener('click', () => answer(k));
     box.appendChild(b);
   });
-  $('screen-quiz').scrollTop = 0;
-}
-
-function answer(k, btn) {
-  const it = quiz.items[quiz.i];
-  quiz.tries++;
   const fb = $('quiz-feedback');
-  if (k === it.answer) {
-    if (quiz.tries === 1) quiz.first++;
-    btn.classList.add('right');
-    $('quiz-choices').querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  if (quiz.solved) {
     $('quiz-verdict').textContent = TEXT.quizCorrect;
     $('quiz-explain').textContent = it.explain;
     fb.hidden = false;
+  } else if (quiz.wrongs.length) {
+    $('quiz-verdict').textContent = TEXT.quizWrong;
+    $('quiz-explain').textContent = quiz.wrongs.length >= 2 ? it.explain : ''; // 2回まちがえたら解説を見せる
+    fb.hidden = false;
+  } else {
+    fb.hidden = true;
+  }
+  const last = quiz.mode === 'story' && quiz.i === total - 1;
+  $('btn-quiz-next').textContent = quiz.mode === 'kantei' ? TEXT.kanteiNext : last ? TEXT.quizDone : TEXT.quizNext;
+  $('btn-quiz-next').hidden = !quiz.solved;
+}
+
+function answer(k) {
+  if (!quiz || quiz.solved) return;
+  const it = itemView(quiz.items[quiz.i]);
+  if (k === it.answer) {
+    if (!quiz.wrongs.length) quiz.first++;
+    quiz.solved = true;
     audio.just(quiz.i + 1);
     vibrate(CONFIG.VIBRATE_JUST);
-    const last = quiz.i === quiz.items.length - 1;
-    $('btn-quiz-next').textContent = last ? TEXT.quizDone : TEXT.quizNext;
-    $('btn-quiz-next').hidden = false;
   } else {
-    btn.classList.add('wrong');
-    btn.disabled = true;
+    quiz.wrongs.push(k);
     audio.miss();
-    $('quiz-verdict').textContent = TEXT.quizWrong;
-    // 2回まちがえたら、解説を見せる
-    $('quiz-explain').textContent = quiz.tries >= 2 ? it.explain : '';
-    fb.hidden = false;
   }
+  renderQuestion();
 }
 
 pressable($('btn-quiz-next'), () => {
   if (!quiz) return;
+  if (quiz.mode === 'kantei') {
+    quiz.items.push({ kantei: makeKantei(createRng(randomSeed())) });
+    quiz.i++;
+    return beginQuestion();
+  }
   quiz.i++;
-  if (quiz.i < quiz.items.length) return renderQuestion();
+  if (quiz.i < quiz.items.length) return beginQuestion();
   const st = loadStory();
   const old = st.quiz[quiz.chapterId];
   if (!old || quiz.first > old.first) st.quiz[quiz.chapterId] = { first: quiz.first, total: quiz.items.length };
@@ -1669,6 +1761,7 @@ if (new URLSearchParams(location.search).has('debug')) {
     startDojo: () => startRun('dojo'),
     startRun,
     startChapter,
+    startKantei,
     get talk() { return talk; },
     get quiz() { return quiz; },
   };

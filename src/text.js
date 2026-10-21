@@ -22,6 +22,7 @@ const JA = {
     4: '体積＋温度 2枚',
     5: '℃カード登場 2枚',
     6: '全カード 3枚',
+    7: '物質量カード登場 2枚',
   },
 
   stageLabel: '段階',
@@ -50,6 +51,7 @@ const JA = {
     ignore_t: '体積と温度、両方の倍率を掛ける',
     calc: '倍率を1枚ずつ書き出して、順に掛けてみよう',
     range: '途中で体積が使えない値になった。順番を見直そう',
+    inverse_n: '気体を増やすと、圧力は大きくなる（物質量に比例）',
   },
 
   // ---- v0.3 道場 ----
@@ -94,6 +96,7 @@ const JA = {
     ignore_t: '温度の無視',
     calc: '計算ミス',
     range: '順番で範囲外',
+    inverse_n: '物質量の逆転',
   },
 
   // ---- v0.4 ----
@@ -166,7 +169,7 @@ const JA = {
   masteryLine: (rate, sec, n) => `正答率 ${rate}%・平均 ${sec}秒・${n}回`,
   masteryNone: 'まだデータがありません',
   masteryMore: (n) => `あと${n}回で星を表示`,
-  cardNames: { vmul: '体積カード', vset: '体積指定カード', tset_k: '温度カード（K）', tset_c: '温度カード（℃）' },
+  cardNames: { vmul: '体積カード', vset: '体積指定カード', tset_k: '温度カード（K）', tset_c: '温度カード（℃）', nmul: '物質量カード' },
   titlesTitle: '称号',
   newTitle: (name) => `称号「${name}」を獲得！`,
   titleNames: {
@@ -183,7 +186,7 @@ const JA = {
   },
 
   // ---- v0.5 ストーリー ----
-  charNames: { boyle: 'ボイル', charles: 'シャルル', kelvin: 'ケルビン', celsius: 'セルシウス', vdw: 'ファンデルワールス', fahrenheit: 'ファーレンハイト', dalton: 'ドルトン' },
+  charNames: { boyle: 'ボイル', charles: 'シャルル', kelvin: 'ケルビン', celsius: 'セルシウス', vdw: 'ファンデルワールス', fahrenheit: 'ファーレンハイト', dalton: 'ドルトン', avogadro: 'アボガドロ' },
   story: 'ストーリー',
   storyDesc: '気体の精たちと対決',
   storyTitle: 'ストーリー',
@@ -223,12 +226,25 @@ const JA = {
     swap_target: (n) => `${n}が目標を書き換えた！`,
     frost: (n) => `${n}が霜カードを送ってきた！`,
     to_celsius: (n) => `${n}がKカードを℃に書き換えた！`,
+    leak: (n) => `${n}がボンベの気体の量を変えた！`,
   },
   frostHint: '霜カードは場に置けない。次のジャストで溶けるよ',
   oppJust: (name) => `${name}がジャスト！`,
   oppMiss: (name) => `${name}がハズレ`,
   storyPack: 'ごほうびにカードパックを1つもらった',
   storyNext: '続きは次の版で！ 状態方程式の章へ',
+
+  // ---- v0.6 ----
+  leakIn: '気体が入った（物質量が増えた）',
+  leakOut: '気体が漏れた（物質量が減った）',
+  kantei: '分子量の鑑定',
+  kanteiDesc: 'M = mRT/(pV) で気体を見分ける',
+  kanteiLocked: 'ストーリー5章をクリアすると開く',
+  kanteiQ: (m, t, p, v) => `ある気体 ${m} g は、${t}℃、${p} Pa で ${v} L を占めた。この気体はどれ？（R = 8.3×10³ Pa·L/(mol·K)）`,
+  kanteiExplain: (m, t, T, p, v, M, name) => `M = mRT/(pV) = ${m} × 8.3×10³ × ${T} ÷ (${p} × ${v}) ≈ ${M}。分子量 ${M} の ${name}。\n（温度は ${t}℃ = ${T} K に直す）`,
+  kanteiNext: '次の鑑定',
+  kanteiCount: (n) => `鑑定 ${n} 問目`,
+  gases: { H2: '水素 H₂（2.0）', He: 'ヘリウム He（4.0）', CH4: 'メタン CH₄（16）', N2: '窒素 N₂（28）', O2: '酸素 O₂（32）', CO2: '二酸化炭素 CO₂（44）' },
 
   unitP: '×10⁵ Pa',
   unitV: 'L',
@@ -257,6 +273,7 @@ const EN = {
     4: 'Volume + temp ×2',
     5: '°C cards appear ×2',
     6: 'All cards ×3',
+    7: 'Mole cards appear ×2',
   },
 
   stageLabel: 'Lv',
@@ -284,6 +301,7 @@ const EN = {
     ignore_t: 'Multiply by both the volume ratio and the temperature ratio',
     calc: 'Write each ratio down, card by card, and multiply in order',
     range: 'The volume went out of range on the way. Check the order',
+    inverse_n: 'More gas means higher pressure (proportional to amount)',
   },
 
   // ---- v0.3 Dojo ----
@@ -328,6 +346,7 @@ const EN = {
     ignore_t: 'Ignored temperature',
     calc: 'Arithmetic slip',
     range: 'Out of range (order)',
+    inverse_n: 'Inverted amount ratio',
   },
 
   // ---- v0.4 ----
@@ -400,7 +419,7 @@ const EN = {
   masteryLine: (rate, sec, n) => `${rate}% correct · avg ${sec} s · ${n} tries`,
   masteryNone: 'No data yet',
   masteryMore: (n) => `${n} more to rate`,
-  cardNames: { vmul: 'Volume card', vset: 'Set-volume card', tset_k: 'Temp card (K)', tset_c: 'Temp card (°C)' },
+  cardNames: { vmul: 'Volume card', vset: 'Set-volume card', tset_k: 'Temp card (K)', tset_c: 'Temp card (°C)', nmul: 'Mole card' },
   titlesTitle: 'Titles',
   newTitle: (name) => `Title earned: “${name}”`,
   titleNames: {
@@ -417,7 +436,7 @@ const EN = {
   },
 
   // ---- v0.5 Story ----
-  charNames: { boyle: 'Boyle', charles: 'Charles', kelvin: 'Kelvin', celsius: 'Celsius', vdw: 'van der Waals', fahrenheit: 'Fahrenheit', dalton: 'Dalton' },
+  charNames: { boyle: 'Boyle', charles: 'Charles', kelvin: 'Kelvin', celsius: 'Celsius', vdw: 'van der Waals', fahrenheit: 'Fahrenheit', dalton: 'Dalton', avogadro: 'Avogadro' },
   story: 'Story',
   storyDesc: 'Duel the gas spirits',
   storyTitle: 'Story',
@@ -457,12 +476,25 @@ const EN = {
     swap_target: (n) => `${n} rewrote your target!`,
     frost: (n) => `${n} sent you a frost card!`,
     to_celsius: (n) => `${n} turned a K card into °C!`,
+    leak: (n) => `${n} changed the amount of gas!`,
   },
   frostHint: "Frost cards can't be played. They melt on your next JUST",
   oppJust: (name) => `${name} got a JUST!`,
   oppMiss: (name) => `${name} missed`,
   storyPack: 'You got a card pack as a reward',
   storyNext: 'To be continued: the equation of state!',
+
+  // ---- v0.6 ----
+  leakIn: 'Gas was added (more moles)',
+  leakOut: 'Gas leaked out (fewer moles)',
+  kantei: 'Molar Mass Lab',
+  kanteiDesc: 'Identify gases with M = mRT/(pV)',
+  kanteiLocked: 'Clear Story Chapter 5 to open',
+  kanteiQ: (m, t, p, v) => `A gas sample of ${m} g occupies ${v} L at ${t} °C and ${p} Pa. Which gas is it? (R = 8.3×10³ Pa·L/(mol·K))`,
+  kanteiExplain: (m, t, T, p, v, M, name) => `M = mRT/(pV) = ${m} × 8.3×10³ × ${T} ÷ (${p} × ${v}) ≈ ${M}, so it is ${name}.\n(Convert ${t} °C to ${T} K first.)`,
+  kanteiNext: 'Next sample',
+  kanteiCount: (n) => `Sample ${n}`,
+  gases: { H2: 'Hydrogen H₂ (2.0)', He: 'Helium He (4.0)', CH4: 'Methane CH₄ (16)', N2: 'Nitrogen N₂ (28)', O2: 'Oxygen O₂ (32)', CO2: 'Carbon dioxide CO₂ (44)' },
 
   unitP: '×10⁵ Pa',
   unitV: 'L',
@@ -517,4 +549,13 @@ export function formatT(T) {
 
 function trimNum(s) {
   return s.replace(/\.?0+$/, '');
+}
+
+// 物質量 n [mol] = pV/(RT)。P は 0.1×10⁵ Pa、V は 0.5 L 単位の分数
+export function formatMol(st, R = 8.3e3) {
+  const p = (st.P.n / st.P.d) * 1e4;
+  const v = (st.V.n / st.V.d) / 2;
+  const t = st.T.n / st.T.d;
+  const n = (p * v) / (R * t);
+  return `${TEXT.approx}${n.toPrecision(2)} mol`;
 }
