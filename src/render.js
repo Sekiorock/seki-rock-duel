@@ -6,7 +6,7 @@
 //   温度 T … 左の温度計の高さと、粒の速さ（√T に比例）と粒の色（熱いほど濃い青）
 //   圧力 P … 壁を押す矢印の長さ、気体の色の濃さ、圧力計の針。粒が壁に当たると光る
 
-import { CONFIG } from './config.js?v=0.2.1';
+import { CONFIG } from './config.js?v=0.3.0';
 
 const NAVY = '#1B2A49';
 const BLUE = '#2F6FED';
@@ -39,7 +39,11 @@ export class BombeView {
     const s = CONFIG.START_STATE;
     this.cur = { P: s.P, V: s.V, T: s.T };   // いま表示している値（数）
     this.target = null;                       // 目標の圧力（数）
-    this.ghost = null;                        // 予告表示（補助あり）
+    this.shadow = null;                       // 補助ありのシャドウ { seq, start, onStep }
+    this.ghost = null;                        // シャドウの今の状態（数）
+    this.ghostAlpha = 0;
+    this.danger = 0;                          // 危険メーター（震えに使う）
+    this.burstAt = null;                      // 破裂した時刻
     this.tween = null;
     this.rings = [];
     this.hits = [];
@@ -79,9 +83,66 @@ export class BombeView {
     this.target = target;
   }
 
-  setGhost(state) {
-    this.ghost = state ? { ...state } : null;
+  // 補助ありのシャドウ：seq は [今の状態, 1枚目のあと, 2枚目のあと, …]（数）。
+  // 左のカードから1枚ずつ試すように、半透明のピストン・針・温度計が動き、最後で止まり、また繰り返す。
+  // onStep(i) は、いま試しているカードの番号（0〜）。止まっている間は最後の番号、戻る間は -1
+  setShadow(seq, onStep = null) {
+    if (!seq || seq.length < 2) {
+      this.shadow = null;
+      this.ghost = null;
+      if (this._lastStep !== -1 && this._onStep) this._onStep(-1);
+      this._lastStep = -1;
+      return;
+    }
+    this.shadow = { seq: seq.map((x) => ({ ...x })), start: performance.now() };
+    this._onStep = onStep;
+    this._lastStep = null;
   }
+
+  _updateShadow(now) {
+    const sh = this.shadow;
+    if (!sh) { this.ghost = null; return; }
+    const S = CONFIG.SHADOW;
+    const n = sh.seq.length - 1;
+    const seg = S.STEP_MS + S.GAP_MS;
+    const total = n * seg + S.HOLD_MS + S.RESET_MS;
+    // 描画の時刻は、シャドウを始めた時刻よりわずかに前のことがあるので、0 未満にしない
+    const t = Math.max(0, now - sh.start) % total;
+    let st;
+    let step;
+    let alpha = 1;
+    if (t < n * seg) {
+      const i = Math.min(n - 1, Math.max(0, Math.floor(t / seg)));
+      const k = easeInOutCubic(Math.min(1, (t - i * seg) / S.STEP_MS));
+      const a = sh.seq[i];
+      const b = sh.seq[i + 1];
+      st = { P: lerp(a.P, b.P, k), V: lerp(a.V, b.V, k), T: lerp(a.T, b.T, k) };
+      step = i;
+      if (t < 200) alpha = t / 200; // 最初は、ふわっと現れる
+    } else if (t < n * seg + S.HOLD_MS) {
+      st = sh.seq[n];
+      step = n - 1;
+    } else {
+      st = sh.seq[n];
+      step = -1;
+      alpha = 1 - (t - n * seg - S.HOLD_MS) / S.RESET_MS;
+    }
+    this.ghost = st;
+    this.ghostAlpha = Math.max(0, alpha) * S.ALPHA;
+    if (step !== this._lastStep) {
+      this._lastStep = step;
+      if (this._onStep) this._onStep(step);
+    }
+  }
+
+  setDanger(m) { this.danger = m; }
+
+  burst() {
+    this.burstAt = performance.now();
+    this.shake();
+  }
+
+  clearBurst() { this.burstAt = null; }
 
   // 1枚ぶんの変化：ピストン・温度・針を同時に動かす
   animateTo(state, ms = CONFIG.ANIM.STEP_MS) {
@@ -127,6 +188,7 @@ export class BombeView {
       }
     }
     this.jolt = Math.max(0, this.jolt - dt * 2.5);
+    this._updateShadow(now);
     this._stepParticles(dt, now);
     this.rings = this.rings.filter((r) => now - r.start < CONFIG.ANIM.RING_MS);
     this.hits = this.hits.filter((h) => now - h.t < CONFIG.GAS.HIT_FLASH_MS);
@@ -183,12 +245,26 @@ export class BombeView {
     const { P, V, T } = this.cur;
 
     let dx = 0;
+    let dy = 0;
     let rot = 0;
     if (this.wobble) {
       const t = (now - this.wobble.start) / this.wobble.ms;
       const k = (1 - t) * Math.sin(t * Math.PI * 6);
       dx = k * 6;
       rot = k * 0.04;
+    }
+    // 危険メーターが高いと、ボンベが震える
+    const warn = CONFIG.DOJO.WARN_AT;
+    if (this.danger >= warn) {
+      const amp = 0.6 + ((this.danger - warn) / (100 - warn)) * 2.4;
+      dx += (Math.random() - 0.5) * amp * 2;
+      dy += (Math.random() - 0.5) * amp;
+    }
+    if (this.burstAt) {
+      const bt = (now - this.burstAt) / 1000;
+      const k = Math.max(0, 1 - bt * 1.5);
+      dx += (Math.random() - 0.5) * 18 * k;
+      dy += (Math.random() - 0.5) * 10 * k;
     }
 
     // 光の輪（ジャスト）
@@ -207,14 +283,53 @@ export class BombeView {
     if (this.showGauge) this._drawPipe(g);
 
     ctx.save();
-    ctx.translate(g.cx + dx, g.bottom);
+    ctx.translate(g.cx + dx, g.bottom + dy);
     ctx.rotate(rot);
     ctx.translate(-g.cx, -g.bottom);
     this._drawCylinder(g, P, V, T, now);
     ctx.restore();
 
     this._drawThermometer(g, T);
+    if (this.ghost) this._drawThermometer(g, this.ghost.T, true);
     if (this.showGauge) this._drawGauge(g, P);
+    if (this.burstAt) this._drawBurst(g, now);
+  }
+
+  // 破裂：光と、飛び散る粒
+  _drawBurst(g, now) {
+    const { ctx } = this;
+    const t = (now - this.burstAt) / 1000;
+    if (t > 2) return;
+    const cy = g.bottom - g.maxH * 0.4;
+    ctx.save();
+    // 光
+    ctx.globalAlpha = Math.max(0, 0.9 - t * 1.6);
+    ctx.fillStyle = WHITE;
+    ctx.beginPath();
+    ctx.arc(g.cx, cy, 20 + t * 400, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = Math.max(0, 1 - t * 1.2);
+    ctx.strokeStyle = BLUE;
+    ctx.lineWidth = 8 * Math.max(0.1, 1 - t);
+    ctx.beginPath();
+    ctx.arc(g.cx, cy, 30 + t * 300, 0, Math.PI * 2);
+    ctx.stroke();
+    // 粒が飛び出す
+    ctx.globalAlpha = Math.max(0, 1 - t * 0.7);
+    ctx.fillStyle = BLUE;
+    ctx.strokeStyle = NAVY;
+    ctx.lineWidth = 1.2;
+    this.particles.forEach((p, i) => {
+      const ang = (i / this.particles.length) * Math.PI * 2 + p.sp;
+      const sp = 160 + p.sp * 160;
+      const x = g.cx + Math.cos(ang) * sp * t;
+      const y = cy + Math.sin(ang) * sp * t + 300 * t * t;
+      ctx.beginPath();
+      ctx.arc(x, y, CONFIG.GAS.RADIUS + 1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.restore();
   }
 
   _drawPipe(g) {
@@ -301,7 +416,7 @@ export class BombeView {
     ctx.strokeStyle = NAVY;
     ctx.lineWidth = 1.2;
     const r = CONFIG.GAS.RADIUS;
-    for (const p of this.particles) {
+    for (const p of this.burstAt ? [] : this.particles) {
       const x = gas.left + r + p.x * (gas.w - r * 2);
       const y = gas.top + r + p.y * Math.max(0, gas.h - r * 2);
       ctx.beginPath();
@@ -343,22 +458,23 @@ export class BombeView {
     ctx.fillRect(L - 4, stopY - 3, 9, 6);
     ctx.fillRect(R - 5, stopY - 3, 9, 6);
 
-    // 予告（補助あり）：点線のピストン
-    if (this.ghost) {
-      const gg = this._gasRect(g, this.ghost.V);
-      ctx.save();
-      ctx.setLineDash([5, 5]);
-      ctx.strokeStyle = BLUE;
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.ellipse(g.cx, gg.top, bw / 2 - 3, g.ry - 1, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
     // ピストン
     const jolt = this.jolt * Math.sin(now / 25) * 3;
     this._drawPiston(g, pistonY + jolt);
+
+    // シャドウピストン（補助あり）：半透明の青いピストンが、出したときの位置まで動く
+    if (this.ghost && this.ghostAlpha > 0) {
+      const gg = this._gasRect(g, this.ghost.V);
+      ctx.save();
+      ctx.globalAlpha = this.ghostAlpha;
+      // 動いた分の気体の範囲を、うすい青で示す
+      ctx.fillStyle = PALE;
+      const y1 = Math.min(gg.top, pistonY);
+      const y2 = Math.max(gg.top, pistonY);
+      ctx.fillRect(L + 3, y1, bw - 6, y2 - y1);
+      this._drawPiston(g, gg.top, true);
+      ctx.restore();
+    }
 
     // 口のふち
     ctx.strokeStyle = NAVY;
@@ -368,22 +484,23 @@ export class BombeView {
     ctx.stroke();
   }
 
-  _drawPiston(g, y) {
+  _drawPiston(g, y, shadow = false) {
     const { ctx } = this;
     const bw = g.bodyW - 6;
     const thick = Math.max(10, g.ry * 1.1);
     const rodTop = Math.max(g.ry * 0.5 + 3, Math.min(y - thick - 8, g.top - 18));
+    const INK = shadow ? BLUE : NAVY;
     // 棒と取っ手
-    ctx.fillStyle = NAVY;
+    ctx.fillStyle = INK;
     ctx.fillRect(g.cx - 4, rodTop, 8, y - thick - rodTop);
     ctx.beginPath();
     ctx.ellipse(g.cx, rodTop, bw * 0.3, g.ry * 0.5, 0, 0, Math.PI * 2);
     ctx.fill();
     // ピストンの厚み（側面）
     const side = ctx.createLinearGradient(g.cx - bw / 2, 0, g.cx + bw / 2, 0);
-    side.addColorStop(0, NAVY);
-    side.addColorStop(0.35, '#3A4E78');
-    side.addColorStop(1, NAVY);
+    side.addColorStop(0, INK);
+    side.addColorStop(0.35, shadow ? '#6E9BF3' : '#3A4E78');
+    side.addColorStop(1, INK);
     ctx.fillStyle = side;
     ctx.beginPath();
     ctx.ellipse(g.cx, y, bw / 2, g.ry, 0, 0, Math.PI);
@@ -397,30 +514,35 @@ export class BombeView {
     topFace.addColorStop(0.4, WHITE);
     topFace.addColorStop(1, PALE);
     ctx.fillStyle = topFace;
-    ctx.strokeStyle = NAVY;
+    ctx.strokeStyle = INK;
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.ellipse(g.cx, y - thick, bw / 2, g.ry, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     // 棒の付け根
-    ctx.fillStyle = NAVY;
+    ctx.fillStyle = INK;
     ctx.fillRect(g.cx - 4, rodTop, 8, y - thick - rodTop);
     ctx.beginPath();
     ctx.ellipse(g.cx, y - thick, 7, 3, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  _drawThermometer(g, T) {
+  // shadow=true：シャドウ温度計（半透明の青。本物の温度計の左に並ぶ）
+  _drawThermometer(g, T, shadow = false) {
     const { ctx } = this;
-    const x = g.cx - g.bodyW / 2 - Math.max(16, g.bodyW * 0.18);
+    const gap = Math.max(16, g.bodyW * 0.18);
+    const x = g.cx - g.bodyW / 2 - gap - (shadow ? 18 : 0);
+    ctx.save();
+    if (shadow) ctx.globalAlpha = this.ghostAlpha * 1.4;
+    const INK = shadow ? BLUE : NAVY;
     const top = g.top + g.maxH * 0.25;
     const bulbY = g.bottom - 6;
     const bw = 8;
     const t = clamp((T - T_MIN) / (T_MAX - T_MIN), 0, 1.02);
     // 管
     ctx.fillStyle = WHITE;
-    ctx.strokeStyle = NAVY;
+    ctx.strokeStyle = INK;
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.roundRect ? ctx.roundRect(x - bw / 2, top, bw, bulbY - top, bw / 2) : ctx.rect(x - bw / 2, top, bw, bulbY - top);
@@ -436,15 +558,18 @@ export class BombeView {
     ctx.fill();
     ctx.stroke();
     // 目盛り
-    ctx.strokeStyle = NAVY;
-    ctx.lineWidth = 1.2;
-    for (let k = 1; k < 5; k++) {
-      const yy = lerp(bulbY - 4, top + 3, k / 5);
-      ctx.beginPath();
-      ctx.moveTo(x + bw / 2, yy);
-      ctx.lineTo(x + bw / 2 + 4, yy);
-      ctx.stroke();
+    if (!shadow) {
+      ctx.strokeStyle = NAVY;
+      ctx.lineWidth = 1.2;
+      for (let k = 1; k < 5; k++) {
+        const yy = lerp(bulbY - 4, top + 3, k / 5);
+        ctx.beginPath();
+        ctx.moveTo(x + bw / 2, yy);
+        ctx.lineTo(x + bw / 2 + 4, yy);
+        ctx.stroke();
+      }
     }
+    ctx.restore();
   }
 
   _drawGauge(g, P) {
@@ -499,15 +624,16 @@ export class BombeView {
     ctx.font = `${Math.round(g.gr * 0.17)}px system-ui, sans-serif`;
     ctx.fillText('×10⁵ Pa', g.gx, g.gy + g.gr * 0.58);
 
-    // 予告の針（点線）
-    if (this.ghost) {
+    // シャドウの針（補助あり）：半透明の青い針が、出したときの値まで動く
+    if (this.ghost && this.ghostAlpha > 0) {
       const a = ang(this.ghost.P);
       ctx.save();
-      ctx.setLineDash([4, 4]);
+      ctx.globalAlpha = Math.min(1, this.ghostAlpha * 1.5);
       ctx.strokeStyle = BLUE;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(g.gx, g.gy);
+      ctx.moveTo(g.gx - Math.cos(a) * g.gr * 0.12, g.gy - Math.sin(a) * g.gr * 0.12);
       ctx.lineTo(g.gx + Math.cos(a) * g.gr * 0.8, g.gy + Math.sin(a) * g.gr * 0.8);
       ctx.stroke();
       ctx.restore();
@@ -543,4 +669,73 @@ function arrow(ctx, x1, y1, x2, y2) {
   ctx.lineTo(x2 - Math.cos(a + 0.55) * 8, y2 - Math.sin(a + 0.55) * 8);
   ctx.closePath();
   ctx.fill();
+}
+
+// ---------- 画面全体の演出（紙吹雪） ----------
+export class FxLayer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.pieces = [];
+    this.running = false;
+  }
+
+  _size() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.w = window.innerWidth;
+    this.h = window.innerHeight;
+    this.canvas.width = Math.round(this.w * dpr);
+    this.canvas.height = Math.round(this.h * dpr);
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // 白い紙吹雪（フィーバー）。n 枚
+  confetti(n = 60, colors = [WHITE, WHITE, PALE]) {
+    this._size();
+    for (let i = 0; i < n; i++) {
+      this.pieces.push({
+        x: Math.random() * this.w,
+        y: -20 - Math.random() * this.h * 0.4,
+        vx: (Math.random() - 0.5) * 60,
+        vy: 90 + Math.random() * 140,
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 8,
+        w: 6 + Math.random() * 6,
+        h: 3 + Math.random() * 4,
+        color: colors[i % colors.length],
+      });
+    }
+    if (!this.running) {
+      this.running = true;
+      this.last = performance.now();
+      requestAnimationFrame((t) => this._loop(t));
+    }
+  }
+
+  _loop(now) {
+    const dt = Math.min(0.05, (now - this.last) / 1000);
+    this.last = now;
+    const { ctx } = this;
+    ctx.clearRect(0, 0, this.w, this.h);
+    for (const p of this.pieces) {
+      p.x += p.vx * dt + Math.sin(now / 300 + p.rot) * 0.6;
+      p.y += p.vy * dt;
+      p.rot += p.vr * dt;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = 'rgba(27,42,73,0.25)';
+      ctx.lineWidth = 1;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.strokeRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    this.pieces = this.pieces.filter((p) => p.y < this.h + 30);
+    if (this.pieces.length) requestAnimationFrame((t) => this._loop(t));
+    else {
+      ctx.clearRect(0, 0, this.w, this.h);
+      this.running = false;
+    }
+  }
 }

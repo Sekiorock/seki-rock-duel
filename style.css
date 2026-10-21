@@ -462,3 +462,250 @@ html[lang="en"] .hint { font-size: 13px; }
   .card .label .bottom { font-size: 15px; }
   .card.temp .label .bottom { font-size: 14px; }
 }
+
+/* =========================================================
+   v0.3：道場・シャドウ・音
+   ========================================================= */
+.screen { background: var(--white); transition: background-color 400ms ease; }
+.corner { gap: 8px; }
+.icon-btn { color: var(--navy); flex: none; }
+.icon-btn svg { display: block; }
+
+/* タイトルのメニュー */
+.menu-btn { position: relative; }
+.menu-best {
+  position: absolute;
+  right: 14px;
+  top: 12px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+/* プレイ画面の上のバー：練習室と道場で中身を切り替える */
+#screen-play .hud-practice, #screen-play .hud-dojo { display: flex; align-items: center; gap: 12px; min-width: 0; }
+#screen-play[data-mode="practice"] .hud-dojo { display: none; }
+#screen-play[data-mode="dojo"] .hud-practice { display: none; }
+.hud-score, .hud-chain { display: flex; flex-direction: column; line-height: 1.05; }
+.hud-score span, .hud-chain span { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; opacity: 0.75; }
+.hud-score b { font-size: 21px; color: var(--navy); }
+.hud-chain b { font-size: 21px; color: var(--blue); }
+.chain-bar { display: block; width: 100%; min-width: 34px; height: 4px; margin-top: 2px; background: var(--pale); border-radius: 2px; overflow: hidden; }
+.chain-bar i { display: block; height: 100%; width: 0; background: var(--blue); }
+.bump { animation: pop 300ms ease; display: inline-block; }
+
+/* フィーバーの残り時間 */
+.fever-bar { position: absolute; left: 0; right: 0; top: env(safe-area-inset-top); height: 5px; opacity: 0; transition: opacity 200ms; }
+.fever-bar i { display: block; height: 100%; width: 100%; background: var(--white); transform-origin: left; }
+#screen-play.fever .fever-bar { opacity: 1; }
+
+/* 目標カードの得点表示 */
+.target-card { position: relative; }
+.score-pop {
+  position: absolute;
+  right: 12px;
+  top: 6px;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--pale);
+  opacity: 0;
+  pointer-events: none;
+}
+.score-pop.show { animation: scorepop 900ms ease-out forwards; }
+@keyframes scorepop {
+  0% { opacity: 0; transform: translateY(8px) scale(0.8); }
+  20% { opacity: 1; transform: translateY(0) scale(1.15); }
+  70% { opacity: 1; transform: translateY(-4px) scale(1); }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+
+/* 危険メーター（ボンベの左） */
+.danger {
+  position: absolute;
+  left: 0;
+  top: 6%;
+  bottom: 4%;
+  width: 24px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+#screen-play[data-mode="dojo"] .danger { display: flex; }
+.danger-label { font-size: 9px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
+.danger-tube {
+  position: relative;
+  flex: 1;
+  width: 14px;
+  border: 2.5px solid var(--navy);
+  border-radius: 8px;
+  background: var(--white);
+  overflow: hidden;
+}
+.danger-fill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 0%;
+  background: var(--navy);
+  transition: height 200ms ease;
+}
+.danger-num { font-size: 12px; }
+.danger.warn .danger-tube { animation: pulse 700ms ease-in-out infinite; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(27, 42, 73, 0.0); }
+  50% { box-shadow: 0 0 0 5px rgba(27, 42, 73, 0.35); }
+}
+
+/* 画面の縁：危険が高いほどネイビーに暗くなる（赤は使わない） */
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0;
+  box-shadow: inset 0 0 90px 40px rgba(27, 42, 73, 0.9);
+  transition: opacity 300ms ease;
+}
+.vignette.pulse { animation: vpulse 800ms ease-in-out infinite; }
+@keyframes vpulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(0.55); } }
+
+/* 画面の光（ジャスト・破裂） */
+.flash { position: fixed; inset: 0; pointer-events: none; z-index: 21; background: var(--white); opacity: 0; }
+.flash.go { animation: flash 350ms ease-out; }
+.flash.blue { background: var(--pale); }
+@keyframes flash { 0% { opacity: 0.55; } 100% { opacity: 0; } }
+.fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 22; }
+
+/* スタンプ（JUST! に SMART! SPEED! が重なる） */
+.stamps { position: absolute; inset: 0; pointer-events: none; }
+.stamps .stamp { opacity: 0; }
+.stamps .stamp.s2 { top: 62%; left: 56%; font-size: 30px; transform: translate(-50%, -50%) rotate(6deg) scale(0); }
+.stamps .stamp.s3 { top: 76%; left: 44%; font-size: 30px; transform: translate(-50%, -50%) rotate(-4deg) scale(0); }
+.stamps .stamp.s2.show { animation: stamp2 380ms cubic-bezier(.2,1.6,.4,1) forwards; }
+.stamps .stamp.s3.show { animation: stamp3 380ms cubic-bezier(.2,1.6,.4,1) forwards; }
+@keyframes stamp2 { 0% { transform: translate(-50%, -50%) rotate(6deg) scale(2); opacity: 0; } 100% { transform: translate(-50%, -50%) rotate(6deg) scale(1); opacity: 1; } }
+@keyframes stamp3 { 0% { transform: translate(-50%, -50%) rotate(-4deg) scale(2); opacity: 0; } 100% { transform: translate(-50%, -50%) rotate(-4deg) scale(1); opacity: 1; } }
+
+/* 大きな文字（連鎖、FEVER!、段階アップ） */
+.banner {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  font-size: 30px;
+  font-weight: 900;
+  font-style: italic;
+  color: var(--blue);
+  -webkit-text-stroke: 1.5px var(--navy);
+  pointer-events: none;
+  opacity: 0;
+}
+.banner.show { animation: banner 1000ms ease-out forwards; }
+.banner.big { font-size: 40px; color: var(--white); -webkit-text-stroke: 2px var(--navy); }
+@keyframes banner {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.6); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  30% { transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -70%) scale(1); }
+}
+
+/* シャドウで今試しているカード（補助あり） */
+.slot .card.sim { border-color: var(--blue); box-shadow: 0 0 0 4px var(--pale), 0 6px 10px rgba(47, 111, 237, 0.35); transform: translateY(-4px); }
+
+/* ---------- フィーバー：背景が青に反転 ---------- */
+#screen-play.fever { background: var(--blue); }
+#screen-play.fever .topbar,
+#screen-play.fever .state-text,
+#screen-play.fever .message,
+#screen-play.fever .danger-label,
+#screen-play.fever .danger-num { color: var(--white); }
+#screen-play.fever .hud-score b, #screen-play.fever .hud-chain b { color: var(--white); }
+#screen-play.fever .chain-bar { background: rgba(255, 255, 255, 0.35); }
+#screen-play.fever .chain-bar i { background: var(--white); }
+#screen-play.fever .lang-btn span { color: var(--navy); }
+#screen-play.fever .lang-btn span.on { color: var(--white); }
+#screen-play.fever .field { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.5); }
+#screen-play.fever .slot { border-color: var(--white); }
+#screen-play.fever .slot.empty::after { color: var(--white); opacity: 0.5; }
+#screen-play.fever .hand-pos.used { border-color: rgba(255, 255, 255, 0.45); }
+#screen-play.fever .duel-btn:not(:disabled) { background: var(--navy); }
+#screen-play.fever .duel-btn:disabled { background: rgba(255, 255, 255, 0.2); color: var(--white); border-color: rgba(255, 255, 255, 0.4); box-shadow: none; }
+#screen-play.fever .sub-btn { background: var(--white); }
+#screen-play.fever .stat b { color: var(--white); }
+
+/* 超フィーバー：カードが光る */
+#screen-play.super .card { animation: glow 700ms ease-in-out infinite alternate; }
+@keyframes glow {
+  from { box-shadow: 0 3px 0 var(--navy), 0 0 0 0 rgba(255, 255, 255, 0.0); }
+  to { box-shadow: 0 3px 0 var(--navy), 0 0 14px 5px rgba(255, 255, 255, 0.95); }
+}
+
+/* ---------- 結果画面 ---------- */
+#screen-result { overflow-y: auto; }
+.result-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 18px; }
+.result-title { margin: 6px 0 4px; font-size: 34px; font-weight: 900; font-style: italic; color: var(--navy); }
+.result-label { margin: 8px 0 0; font-size: 13px; letter-spacing: 0.2em; opacity: 0.7; }
+.result-score { margin: 0; font-size: 52px; font-weight: 900; color: var(--blue); line-height: 1.1; }
+.result-best { margin: 2px 0 10px; min-height: 22px; font-size: 14px; font-weight: 800; }
+.result-best.new { color: var(--white); background: var(--blue); border-radius: 999px; padding: 2px 14px; animation: pop 500ms ease; }
+.result-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin: 4px 0 10px;
+}
+.result-stats div { background: var(--surface); border-radius: 12px; padding: 8px 4px; }
+.result-stats span { display: block; font-size: 11px; opacity: 0.75; }
+.result-stats b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.result-mistakes { width: 100%; text-align: left; }
+.result-mistakes .section-label { margin-top: 6px; }
+.mistake-row { border: 2px solid var(--pale); border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; }
+.mistake-row b { font-size: 15px; }
+.mistake-row b em { font-style: normal; color: var(--blue); margin-left: 6px; }
+.mistake-row p { margin: 3px 0 0; font-size: 13px; line-height: 1.45; }
+.mistake-none { font-size: 14px; padding: 6px 2px; }
+.result-buttons { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 0 4px; }
+
+/* ---------- 一時停止 ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(27, 42, 73, 0.6);
+  display: grid;
+  place-items: center;
+}
+.overlay[hidden] { display: none; }
+.panel {
+  width: min(300px, calc(100% - 32px));
+  background: var(--white);
+  border: 3px solid var(--navy);
+  border-radius: 20px;
+  padding: 18px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.panel h3 { margin: 0; font-size: 22px; }
+
+/* 幅の狭い画面では、上のバーのボタンを少し詰める */
+@media (max-width: 360px) {
+  .topbar-right { gap: 5px; }
+  .lang-btn span { min-width: 24px; }
+  .icon-btn { width: 40px; }
+  .hud-score b, .hud-chain b { font-size: 18px; }
+  #screen-play .hud-dojo { gap: 8px; }
+}
+
+@media (max-width: 360px) {
+  .message { font-size: 12px; }
+}
+
+.card .label .bottom.long, .card.temp .label .bottom.long { font-size: 14.5px; letter-spacing: -0.05em; }
+@media (max-width: 340px) { .card .label .bottom.long, .card.temp .label .bottom.long { font-size: 12.5px; } }

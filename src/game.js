@@ -1,9 +1,9 @@
 // 1人分の盤面の進行（選ぶ、出す、判定）。ひとりでも対戦でも同じものを使う。
 
-import { CONFIG } from './config.js?v=0.2.1';
-import { eq } from './frac.js?v=0.2.1';
-import { startState, applySequence, isTempCard } from './cards.js?v=0.2.1';
-import { generateProblem, rerollHand, estimateMistake } from './puzzle.js?v=0.2.1';
+import { CONFIG } from './config.js?v=0.3.0';
+import { eq } from './frac.js?v=0.3.0';
+import { startState, applySequence, isTempCard } from './cards.js?v=0.3.0';
+import { generateProblem, rerollHand, estimateMistake } from './puzzle.js?v=0.3.0';
 
 let uidCounter = 1;
 const withUid = (c) => (c && !c.uid ? { ...c, uid: uidCounter++ } : c);
@@ -111,5 +111,79 @@ export class Board {
   // 引き直し：手札5枚をすべて入れ替える（目標はそのまま）
   reroll() {
     this._setProblem(rerollHand(this._genArgs({ state: this.state, target: this.target })));
+  }
+}
+
+// ---- 危険メーターと連鎖（3.4）。道場でも、のちの対戦でも同じものを使う ----
+// 時間はゲームの時計（一時停止中は進まない、ミリ秒）で数える
+export class Vitals {
+  constructor(cfg = CONFIG.DOJO) {
+    this.cfg = cfg;
+    this.meter = 0;
+    this.chain = 0;
+    this.maxChain = 0;
+    this.lastJustAt = null;   // 前のジャストの時刻
+    this.targetAt = 0;        // 今の目標が出た時刻
+    this.riseAcc = 0;
+  }
+
+  addMeter(d) {
+    this.meter = Math.max(0, Math.min(this.cfg.METER_MAX, this.meter + d));
+    return this.meter;
+  }
+
+  isBurst() {
+    return this.meter >= this.cfg.METER_MAX;
+  }
+
+  // 時間を dt 進める。riseMs ごとに危険メーター +1。起きたことを配列で返す
+  tick(now, dt, riseMs) {
+    const events = [];
+    if (riseMs > 0) {
+      this.riseAcc += dt;
+      while (this.riseAcc >= riseMs) {
+        this.riseAcc -= riseMs;
+        this.addMeter(1);
+      }
+    }
+    if (this.chain > 0 && this.lastJustAt !== null && now - this.lastJustAt > this.cfg.CHAIN_TIMEOUT_MS) {
+      this.chain = 0;
+      events.push('chain_lost');
+    }
+    if (this.isBurst()) events.push('burst');
+    return events;
+  }
+
+  // 連鎖が切れるまでの残り（0〜1）
+  chainLeft(now) {
+    if (this.chain === 0 || this.lastJustAt === null) return 0;
+    return Math.max(0, 1 - (now - this.lastJustAt) / this.cfg.CHAIN_TIMEOUT_MS);
+  }
+
+  // ジャスト：スマート・スピードを判定し、連鎖とメーターを進める
+  onJust(result, now, minCount) {
+    const smart = result.count === minCount;
+    const speed = now - this.targetAt <= this.cfg.SPEED_MS;
+    this.chain++;
+    this.maxChain = Math.max(this.maxChain, this.chain);
+    this.lastJustAt = now;
+    let d = this.cfg.METER_JUST;
+    if (smart) d += this.cfg.METER_SMART;
+    if (speed) d += this.cfg.METER_SPEED;
+    this.addMeter(d);
+    return { smart, speed, chain: this.chain, meterDelta: d };
+  }
+
+  onMiss() {
+    this.chain = 0;
+    this.addMeter(this.cfg.METER_MISS);
+  }
+
+  onReroll() {
+    this.addMeter(this.cfg.METER_REROLL);
+  }
+
+  onNewTarget(now) {
+    this.targetAt = now;
   }
 }

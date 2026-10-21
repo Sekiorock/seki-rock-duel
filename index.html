@@ -7,7 +7,7 @@
   <meta name="format-detection" content="telephone=no">
   <title>セキオロックデュエル</title>
   <!-- ?v= は版番号。版が変わるたびに必ず新しいファイルを読み込ませるための印 -->
-  <link rel="stylesheet" href="style.css?v=0.2.1">
+  <link rel="stylesheet" href="style.css?v=0.3.0">
   <script>
     // 読み込みに失敗したとき（古いファイルが混ざったときなど）に、白い画面のままにしない
     (function () {
@@ -27,6 +27,7 @@
   <section id="screen-title" class="screen">
     <div class="corner">
       <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+      <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
     </div>
     <div class="title-wrap">
       <canvas id="title-bombe" class="title-bombe" aria-hidden="true"></canvas>
@@ -34,12 +35,16 @@
       <p class="title-en" data-t="titleEn">SEKIO ROCK DUEL</p>
       <p class="tagline" data-t="tagline">カードを組み合わせて、圧力をぴったり合わせろ！</p>
       <div class="menu-buttons">
-        <button id="btn-practice" class="menu-btn primary" type="button">
+        <button id="btn-dojo" class="menu-btn primary" type="button">
+          <b data-t="dojo">道場</b><small data-t="dojoDesc">危険メーターに追われながら解き続ける</small>
+          <em id="dojo-best" class="menu-best"></em>
+        </button>
+        <button id="btn-practice" class="menu-btn" type="button">
           <b data-t="practice">練習室</b><small data-t="practiceDesc">段階を選んで、じっくり解く</small>
         </button>
       </div>
     </div>
-    <p id="version" class="version">v0.2.1</p>
+    <p id="version" class="version">v0.3.0</p>
   </section>
 
   <!-- 練習室：段階を選ぶ -->
@@ -49,6 +54,7 @@
       <h2 class="screen-title" data-t="practice">練習室</h2>
       <div class="topbar-right">
         <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
       </div>
     </header>
     <div class="assist-wrap">
@@ -62,14 +68,21 @@
     <div id="stage-grid" class="stage-grid"></div>
   </section>
 
-  <!-- プレイ画面 -->
+  <!-- プレイ画面（練習室と道場で共通） -->
   <section id="screen-play" class="screen" hidden>
+    <div id="fever-bar" class="fever-bar"><i></i></div>
     <header class="topbar">
-      <div class="stat"><span data-t="stageLabel"></span><b id="stage-num">1</b></div>
-      <div class="stat"><span data-t="justLabel"></span><b id="just-count" class="num">0</b></div>
-      <span id="assist-badge" class="badge" data-t="assistOn" hidden></span>
+      <div class="hud-practice">
+        <div class="stat"><span data-t="stageLabel"></span><b id="stage-num">1</b></div>
+        <div class="stat"><span data-t="justLabel"></span><b id="just-count" class="num">0</b></div>
+      </div>
+      <div class="hud-dojo">
+        <div class="hud-score"><span data-t="scoreLabel"></span><b id="score" class="num">0</b></div>
+        <div class="hud-chain"><span data-t="chainLabel"></span><b id="chain" class="num">0</b><i class="chain-bar"><i id="chain-fill"></i></i></div>
+      </div>
       <div class="topbar-right">
         <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
         <button id="btn-home" class="icon-btn" type="button" aria-label="ホームへ">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>
         </button>
@@ -77,14 +90,21 @@
     </header>
 
     <div class="target-card">
-      <div class="target-label" data-t="targetLabel"></div>
+      <div id="target-label" class="target-label" data-t="targetLabel"></div>
       <div id="target-text" class="target-value num"></div>
+      <div id="score-pop" class="score-pop num"></div>
     </div>
     <div id="hint" class="hint" aria-live="polite"></div>
 
     <div class="bombe-area">
       <canvas id="bombe"></canvas>
-      <div id="stamp" class="stamp" aria-live="polite"></div>
+      <div id="danger" class="danger" aria-hidden="true">
+        <span class="danger-label" data-t="dangerLabel"></span>
+        <div class="danger-tube"><div id="danger-fill" class="danger-fill"></div></div>
+        <b id="danger-num" class="danger-num num">0</b>
+      </div>
+      <div id="stamps" class="stamps" aria-live="polite"></div>
+      <div id="banner" class="banner"></div>
     </div>
     <div id="state-text" class="state-text num"></div>
     <div id="message" class="message" aria-live="polite"></div>
@@ -98,6 +118,38 @@
     <div id="hand" class="hand"></div>
   </section>
 
+  <!-- 道場の結果 -->
+  <section id="screen-result" class="screen" hidden>
+    <div class="result-wrap">
+      <h2 id="result-title" class="result-title"></h2>
+      <p class="result-label" data-t="scoreLabel"></p>
+      <p id="result-score" class="result-score num">0</p>
+      <p id="result-best" class="result-best"></p>
+      <div id="result-stats" class="result-stats"></div>
+      <div class="result-mistakes">
+        <p class="section-label" data-t="resMistakes"></p>
+        <div id="result-mistakes"></div>
+      </div>
+    </div>
+    <div class="result-buttons">
+      <button id="btn-retry" class="duel-btn" type="button" data-t="retry"></button>
+      <button id="btn-result-home" class="sub-btn" type="button" data-t="toHome"></button>
+    </div>
+  </section>
+
+  <!-- 一時停止 -->
+  <div id="pause" class="overlay" hidden>
+    <div class="panel">
+      <h3 data-t="pauseTitle"></h3>
+      <button id="btn-resume" class="duel-btn" type="button" data-t="resume"></button>
+      <button id="btn-quit" class="sub-btn" type="button" data-t="quit"></button>
+    </div>
+  </div>
+
+  <div id="vignette" class="vignette" aria-hidden="true"></div>
+  <div id="flash" class="flash" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+
   <!-- 読み込みに失敗したときのお知らせ -->
   <div id="boot-error" class="boot-error" hidden>
     <p><b>読み込みに失敗しました</b><br>古いファイルが残っている可能性があります。<br>1〜2分待ってから、下のボタンを押してください。</p>
@@ -106,6 +158,6 @@
   </div>
 
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
-  <script type="module" src="src/main.js?v=0.2.1"></script>
+  <script type="module" src="src/main.js?v=0.3.0"></script>
 </body>
 </html>

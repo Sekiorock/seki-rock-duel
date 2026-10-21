@@ -23,7 +23,7 @@ export function save(key, value) {
 }
 
 // ---- 設定（srd.settings） ----
-const DEFAULT_SETTINGS = { assist: false, lang: 'ja' };
+const DEFAULT_SETTINGS = { assist: false, lang: 'ja', muted: false };
 
 export function loadSettings() {
   return { ...DEFAULT_SETTINGS, ...load('settings', {}) };
@@ -55,4 +55,23 @@ export function favoriteMistake(models) {
   let best = null;
   for (const id of models) if (counts[id] && (!best || counts[id] > counts[best])) best = id;
   return best;
+}
+
+// ---- 記録（srd.records） ----
+const DEFAULT_RECORDS = { dojoBest: 0, dojoMaxChain: 0, dojoPlays: 0 };
+
+export function loadRecords() {
+  const r = load('records', {});
+  return { ...DEFAULT_RECORDS, ...(r && typeof r === 'object' ? r : {}) };
+}
+
+// 道場の結果を記録する。自己ベストを更新したら true
+export function recordDojo(summary) {
+  const r = loadRecords();
+  const newBest = summary.score > r.dojoBest;
+  r.dojoBest = Math.max(r.dojoBest, summary.score);
+  r.dojoMaxChain = Math.max(r.dojoMaxChain, summary.maxChain);
+  r.dojoPlays += 1;
+  save('records', r);
+  return { newBest, records: r };
 }

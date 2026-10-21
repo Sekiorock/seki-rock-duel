@@ -1,8 +1,8 @@
 // カードの種類と、ボンベへの効果の計算。
 // 状態は { P, V, T } で、どれも分数（frac.js）。
 
-import { frac, mul, div, isInt } from './frac.js?v=0.2.1';
-import { CONFIG } from './config.js?v=0.2.1';
+import { frac, mul, div, isInt } from './frac.js?v=0.3.0';
+import { CONFIG } from './config.js?v=0.3.0';
 
 // ---- カードを作る ----
 export const vmul = (num, den) => ({ type: 'vmul', num, den });   // 体積を num/den 倍
