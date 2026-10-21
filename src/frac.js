@@ -22,3 +22,4 @@ export const eq = (a, b) => a.n === b.n && a.d === b.d;
 export const isInt = (a) => a.d === 1;
 export const toNumber = (a) => a.n / a.d;
 export const cmp = (a, b) => a.n * b.d - b.n * a.d;
+export const add = (a, b) => frac(a.n * b.d + b.n * a.d, a.d * b.d);

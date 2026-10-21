@@ -1,6 +1,6 @@
 // ストーリーの文言（会話・教科書の要点の解説・確認問題）。日本語（ja）と英語（en）。
 // 会話のセリフは1つ20文字以内（8.3）。解説（lesson）は教科書（第3章 気体）の要点をまとめたもの。
-// v0.5：1〜4章（p.38〜43）。v0.6：5章（p.44〜45、状態方程式）。
+// v0.5：1〜4章（p.38〜43）。v0.6：5章（p.44〜45、状態方程式）。v0.7：6章（p.46〜49、混合気体）。
 //
 // コマの形
 //   { who: 'boyle', face: 'normal', text: '…' }                 キャラクターのセリフ
@@ -30,6 +30,18 @@ const DEMO = {
   // 状態方程式：体積・温度一定で物質量 2 倍 → 圧力 2 倍（粒の数も 2 倍）
   nDouble: [{ P: 10, V: 12, T: 300, N: 6 }, { P: 20, V: 12, T: 300, N: 12 }],
   nTriple: [{ P: 10, V: 12, T: 300, N: 6 }, { P: 20, V: 12, T: 300, N: 12 }, { P: 30, V: 12, T: 300, N: 18 }],
+  // 分圧の法則：N₂ だけのボンベに O₂ を混ぜていく（V・T 一定）。N₂ の分圧 0.8 はそのまま、全圧が上がる
+  //   A は N₂、B は O₂ の物質量（相対の値）
+  daltonMix: [
+    { P: 8, V: 12, T: 300, N: 4, A: 4, B: 0 },
+    { P: 10, V: 12, T: 300, N: 5, A: 4, B: 1 },
+    { P: 12, V: 12, T: 300, N: 6, A: 4, B: 2 },
+  ],
+  // 分圧の比 = 物質量の比：空気（4:1）を圧縮しても、分圧の比は 4:1 のまま
+  partRatio: [
+    { P: 10, V: 12, T: 300, N: 5, A: 4, B: 1 },
+    { P: 20, V: 6, T: 300, N: 5, A: 4, B: 1 },
+  ],
 };
 
 const JA = {
@@ -224,11 +236,63 @@ const JA = {
           explain: 'pV = (m/M)RT を M について解くと、M = mRT/(pV)。' },
       ],
     },
+    6: {
+      title: 'ドルトン：混ぜれば、もっと面白い',
+      topic: '分圧・全圧・モル分率・平均分子量・水上置換',
+      pages: 'p.46〜49',
+      intro: [
+        { who: 'dalton', face: 'normal', text: 'ドルトンだ。原子の人さ' },
+        { who: 'dalton', face: 'smug', text: '空気は気体の混ぜものだ' },
+        { lesson: '混合気体の全圧と分圧', ref: 'p.46',
+          text: '2種類以上の気体が混じったものを混合気体という。\n混合気体の圧力を全圧、成分の気体がそれぞれ単独で、混合気体と同じ体積を占めたときの圧力を分圧という。' },
+        { lesson: 'ドルトンの分圧の法則', ref: 'p.46', demo: DEMO.daltonMix,
+          text: '全圧 p は、成分気体の分圧の和に等しい。\np = pA + pB\n体積・温度が同じまま O₂ を混ぜると、N₂ の分圧はそのままで、O₂ の分圧のぶんだけ全圧が上がる。' },
+        { lesson: '分圧の比 = 物質量の比', ref: 'p.47', demo: DEMO.partRatio,
+          text: '同じ温度・同じ体積では、分圧は物質量に比例する（p = nRT/V）。\npA : pB = nA : nB\n同じ温度・同じ圧力で比べると、体積の比も物質量の比に等しい。' },
+        { lesson: 'モル分率', ref: 'p.47',
+          text: '全物質量に対する成分の物質量の割合をモル分率という。\n分圧 = 全圧 × モル分率\npA = p × nA/(nA + nB)\n例：空気（N₂:O₂ = 4:1）が 1.0×10⁵ Pa なら、O₂ の分圧は 1.0×10⁵ × 1/5 = 2.0×10⁴ Pa。' },
+        { lesson: '平均分子量', ref: 'p.48',
+          text: '混合気体を1種類の気体とみなしたときの分子量を平均分子量という。\n成分の分子量 × モル分率 の和で求める。\n空気：28 × 4/5 + 32 × 1/5 = 28.8' },
+        { lesson: '水上置換で集めた気体', ref: 'p.49',
+          text: '水上置換で集めた気体には水蒸気が混じっている。\n大気圧 p = p(気体) + p(H₂O)\nだから集めた気体の分圧は p − p(H₂O)。水蒸気の分を引くのを忘れずに。' },
+        { who: 'dalton', face: 'normal', text: '混ぜるカードを使うぞ' },
+        { who: 'dalton', face: 'smug', text: '分圧か全圧か、見極めろ' },
+      ],
+      outro: [
+        { who: 'dalton', face: 'sweat', text: '分圧を見抜いたか…' },
+        { who: 'dalton', face: 'normal', text: '全圧は分圧の和だ' },
+        { who: 'dalton', face: 'smug', text: '仲間になろう' },
+        { who: 'vdw', face: 'smug', text: '理想通りにいくかな？' },
+      ],
+      lose: { who: 'dalton', face: 'smug', text: '混ぜたら分からなくなったか' },
+      quiz: [
+        { q: '同じ温度で、2.0×10⁵ Pa・6.0 L の N₂ と 1.0×10⁵ Pa・3.0 L の H₂ を、5.0 L の容器に入れた。N₂ の分圧は？', ref: 'p.47 例題3',
+          choices: ['2.4×10⁵ Pa', '2.0×10⁵ Pa', '1.7×10⁵ Pa', '3.0×10⁵ Pa'], answer: 0,
+          explain: 'N₂ だけで 5.0 L を占めると考え、ボイルの法則で\n2.0×10⁵ × 6.0 = pN₂ × 5.0 → pN₂ = 2.4×10⁵ Pa\n（3.0×10⁵ Pa は全圧。H₂ の分圧 6.0×10⁴ Pa との和）' },
+        { q: '同じ温度で、1.6×10⁵ Pa・3.0 L の O₂ と 2.4×10⁵ Pa・2.0 L の N₂ を、4.0 L の容器に入れた。全圧は？', ref: 'p.47 類題3',
+          choices: ['2.4×10⁵ Pa', '4.0×10⁵ Pa', '1.2×10⁵ Pa', '2.0×10⁵ Pa'], answer: 0,
+          explain: 'pO₂ = 1.6×10⁵ × 3.0/4.0 = 1.2×10⁵ Pa\npN₂ = 2.4×10⁵ × 2.0/4.0 = 1.2×10⁵ Pa\n全圧 = 分圧の和 = 2.4×10⁵ Pa\n（1.6 + 2.4 = 4.0 としては、体積の変化を忘れている）' },
+        { q: '空気を N₂:O₂ = 4:1（物質量の比）の混合気体とする。全圧 1.0×10⁵ Pa のとき、O₂ の分圧は？', ref: 'p.47',
+          choices: ['2.0×10⁴ Pa', '8.0×10⁴ Pa', '2.5×10⁴ Pa', '1.0×10⁵ Pa'], answer: 0,
+          explain: 'O₂ のモル分率は 1/(4+1) = 1/5。\n分圧 = 全圧 × モル分率 = 1.0×10⁵ × 1/5 = 2.0×10⁴ Pa\n（1.0×10⁵ Pa は全圧。分圧と取り違えない）' },
+        { q: '空気（N₂:O₂ = 4:1）の平均分子量は？（N₂ = 28、O₂ = 32）', ref: 'p.48',
+          choices: ['28.8', '30', '31.2', '60'], answer: 0,
+          explain: '28 × 4/5 + 32 × 1/5 = 22.4 + 6.4 = 28.8\n（30 は単純な平均。31.2 はモル分率を逆にしている）' },
+        { q: '27℃ で水素を水上置換で集めた。大気圧は 1.04×10⁵ Pa、27℃ の水蒸気圧は 4.0×10³ Pa。水素の分圧は？', ref: 'p.49 例題4',
+          choices: ['1.00×10⁵ Pa', '1.04×10⁵ Pa', '1.08×10⁵ Pa', '4.0×10³ Pa'], answer: 0,
+          explain: '大気圧 = 水素の分圧 + 水蒸気圧 だから\npH₂ = 1.04×10⁵ − 4.0×10³ = 1.00×10⁵ Pa' },
+        { q: '上の水素は 249 mL だった。水素の物質量は？（R = 8.3×10³ Pa·L/(mol·K)）', ref: 'p.49 例題4',
+          choices: ['1.0×10⁻² mol', '1.1×10⁻¹ mol', '10 mol', '1.0×10⁻⁵ mol'], answer: 0,
+          explain: 'n = pV/(RT) = 1.00×10⁵ × 0.249 ÷ (8.3×10³ × 300) = 1.0×10⁻² mol\n（249 mL = 0.249 L、27℃ = 300 K に直す）' },
+        { q: '同じ温度・同じ体積の混合気体で、成分気体の分圧の比は、何の比に等しい？', ref: 'p.49 学んだことを説明してみよう3',
+          choices: ['物質量の比', '分子量の比', '質量の比', '分子の大きさの比'], answer: 0,
+          explain: 'p = nRT/V より、同じ T・V では分圧は物質量に比例する。\npA : pB = nA : nB' },
+      ],
+    },
   },
   // これから追加する章（単元全体の地図）
   future: {
     5: { title: '状態方程式', topic: 'pV = nRT・気体定数・分子量の求め方', pages: 'p.44〜45' },
-    6: { title: 'ドルトン：混ぜれば、もっと面白い', topic: '分圧・全圧・モル分率・平均分子量・水上置換', pages: 'p.46〜49' },
     7: { title: 'ファンデルワールス：理想通りにはいかない', topic: '実在気体と理想気体のずれ（Z = pV/nRT）', pages: 'p.50〜53' },
     8: { title: '隠し章：華氏ではどうかな？', topic: '℉カード（教科書の範囲外のおまけ）', pages: '' },
   },
@@ -426,10 +490,62 @@ const EN = {
           explain: 'Solve pV = (m/M)RT for M: M = mRT/(pV).' },
       ],
     },
+    6: {
+      title: 'Dalton: Mixing Makes It Fun',
+      topic: 'Partial and total pressure, mole fraction, mean molar mass, collecting over water',
+      pages: 'pp.46–49',
+      intro: [
+        { who: 'dalton', face: 'normal', text: "I'm Dalton, the atom guy." },
+        { who: 'dalton', face: 'smug', text: 'Air is a mixture of gases.' },
+        { lesson: 'Total and partial pressure', ref: 'p.46',
+          text: 'A mixture of two or more gases is a gas mixture.\nIts pressure is the total pressure. The pressure each component would have if it alone filled the same volume is its partial pressure.' },
+        { lesson: "Dalton's law of partial pressures", ref: 'p.46', demo: DEMO.daltonMix,
+          text: 'The total pressure equals the sum of the partial pressures.\np = pA + pB\nAdd O₂ at the same V and T: the N₂ partial pressure stays, and the total rises by the O₂ partial pressure.' },
+        { lesson: 'Pressure ratio = mole ratio', ref: 'p.47', demo: DEMO.partRatio,
+          text: 'At the same temperature and volume, partial pressure is proportional to amount (p = nRT/V).\npA : pB = nA : nB\nAt the same temperature and pressure, the volume ratio also equals the mole ratio.' },
+        { lesson: 'Mole fraction', ref: 'p.47',
+          text: 'The share of a component in the total amount is its mole fraction.\nPartial pressure = total pressure × mole fraction\npA = p × nA/(nA + nB)\nAir (N₂:O₂ = 4:1) at 1.0×10⁵ Pa: p(O₂) = 1.0×10⁵ × 1/5 = 2.0×10⁴ Pa.' },
+        { lesson: 'Mean molar mass', ref: 'p.48',
+          text: 'Treating a mixture as one gas gives its mean molar mass:\nthe sum of (molar mass × mole fraction).\nAir: 28 × 4/5 + 32 × 1/5 = 28.8' },
+        { lesson: 'Gas collected over water', ref: 'p.49',
+          text: 'Gas collected over water contains water vapour.\nAtmospheric p = p(gas) + p(H₂O)\nSo the gas itself has p − p(H₂O). Remember to subtract the vapour.' },
+        { who: 'dalton', face: 'normal', text: 'Mixing cards, ready!' },
+        { who: 'dalton', face: 'smug', text: 'Partial or total? Look hard.' },
+      ],
+      outro: [
+        { who: 'dalton', face: 'sweat', text: 'You saw the partials…' },
+        { who: 'dalton', face: 'normal', text: 'Total = sum of partials.' },
+        { who: 'dalton', face: 'smug', text: "Let's be friends." },
+        { who: 'vdw', face: 'smug', text: 'Will gases stay ideal?' },
+      ],
+      lose: { who: 'dalton', face: 'smug', text: 'Lost in the mixture?' },
+      quiz: [
+        { q: 'At one temperature, N₂ at 2.0×10⁵ Pa in 6.0 L and H₂ at 1.0×10⁵ Pa in 3.0 L are put into a 5.0 L vessel. What is the partial pressure of N₂?', ref: 'p.47 Example 3',
+          choices: ['2.4×10⁵ Pa', '2.0×10⁵ Pa', '1.7×10⁵ Pa', '3.0×10⁵ Pa'], answer: 0,
+          explain: 'Imagine N₂ alone filling 5.0 L. By Boyle\'s law\n2.0×10⁵ × 6.0 = p(N₂) × 5.0 → p(N₂) = 2.4×10⁵ Pa\n(3.0×10⁵ Pa is the total, with p(H₂) = 6.0×10⁴ Pa.)' },
+        { q: 'At one temperature, O₂ at 1.6×10⁵ Pa in 3.0 L and N₂ at 2.4×10⁵ Pa in 2.0 L are put into a 4.0 L vessel. What is the total pressure?', ref: 'p.47 Exercise 3',
+          choices: ['2.4×10⁵ Pa', '4.0×10⁵ Pa', '1.2×10⁵ Pa', '2.0×10⁵ Pa'], answer: 0,
+          explain: 'p(O₂) = 1.6×10⁵ × 3.0/4.0 = 1.2×10⁵ Pa\np(N₂) = 2.4×10⁵ × 2.0/4.0 = 1.2×10⁵ Pa\nTotal = sum = 2.4×10⁵ Pa\n(1.6 + 2.4 = 4.0 forgets the volume change.)' },
+        { q: 'Treat air as N₂:O₂ = 4:1 (mole ratio). At a total of 1.0×10⁵ Pa, what is the partial pressure of O₂?', ref: 'p.47',
+          choices: ['2.0×10⁴ Pa', '8.0×10⁴ Pa', '2.5×10⁴ Pa', '1.0×10⁵ Pa'], answer: 0,
+          explain: 'Mole fraction of O₂ = 1/(4+1) = 1/5.\nPartial = total × fraction = 1.0×10⁵ × 1/5 = 2.0×10⁴ Pa\n(1.0×10⁵ Pa is the total, not the partial.)' },
+        { q: 'What is the mean molar mass of air (N₂:O₂ = 4:1)? (N₂ = 28, O₂ = 32)', ref: 'p.48',
+          choices: ['28.8', '30', '31.2', '60'], answer: 0,
+          explain: '28 × 4/5 + 32 × 1/5 = 22.4 + 6.4 = 28.8\n(30 is a plain average; 31.2 swaps the fractions.)' },
+        { q: 'Hydrogen is collected over water at 27 °C. Atmospheric pressure is 1.04×10⁵ Pa and the vapour pressure of water at 27 °C is 4.0×10³ Pa. What is the partial pressure of H₂?', ref: 'p.49 Example 4',
+          choices: ['1.00×10⁵ Pa', '1.04×10⁵ Pa', '1.08×10⁵ Pa', '4.0×10³ Pa'], answer: 0,
+          explain: 'Atmospheric = p(H₂) + vapour pressure, so\np(H₂) = 1.04×10⁵ − 4.0×10³ = 1.00×10⁵ Pa' },
+        { q: 'That hydrogen was 249 mL. How many moles is it? (R = 8.3×10³ Pa·L/(mol·K))', ref: 'p.49 Example 4',
+          choices: ['1.0×10⁻² mol', '1.1×10⁻¹ mol', '10 mol', '1.0×10⁻⁵ mol'], answer: 0,
+          explain: 'n = pV/(RT) = 1.00×10⁵ × 0.249 ÷ (8.3×10³ × 300) = 1.0×10⁻² mol\n(249 mL = 0.249 L; 27 °C = 300 K.)' },
+        { q: 'In a gas mixture at one temperature and volume, the ratio of partial pressures equals the ratio of…', ref: 'p.49 Explain 3',
+          choices: ['amounts (moles)', 'molar masses', 'masses', 'molecule sizes'], answer: 0,
+          explain: 'From p = nRT/V, at the same T and V partial pressure is proportional to amount.\npA : pB = nA : nB' },
+      ],
+    },
   },
   future: {
     5: { title: 'The Equation of State', topic: 'pV = nRT, the gas constant, finding molar mass', pages: 'pp.44–45' },
-    6: { title: 'Dalton: Mixing Makes It Fun', topic: 'Partial and total pressure, mole fraction, mean molar mass, collecting over water', pages: 'pp.46–49' },
     7: { title: 'van der Waals: Not So Ideal', topic: 'How real gases differ from ideal gases (Z = pV/nRT)', pages: 'pp.50–53' },
     8: { title: 'Hidden: How About Fahrenheit?', topic: '°F cards (a bonus beyond the textbook)', pages: '' },
   },

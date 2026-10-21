@@ -2,8 +2,8 @@
 // 4つ打ちのドラムに、連鎖が伸びるほど楽器が加わり、フィーバーで一気に解放される。
 // 楽器の出し入れは、必ず次の小節の頭にそろえる。
 
-import { CONFIG } from './config.js?v=0.6.0';
-import { midiToHz } from './audio.js?v=0.6.0';
+import { CONFIG } from './config.js?v=0.7.0';
+import { midiToHz } from './audio.js?v=0.7.0';
 
 const MAJ = [0, 4, 7];
 const MIN = [0, 3, 7];
@@ -22,7 +22,7 @@ export const SONGS = {
     bass: 'triangle', pad: 'triangle', arp: 'triangle', lead: 'sine', padCut: 1400,
     melody: [[4, null, 5, null, 7, null, 5, null], [4, null, 2, null, 0, null, null, null], [2, null, 4, null, 5, null, 7, null], [9, null, 7, null, 5, null, 4, null]],
   },
-  battle: {      // 対戦：128 BPM、ト長調（v0.6 から使う）
+  battle: {      // 対戦：128 BPM、ト長調（ストーリーの対戦で使う。CPU戦は v0.9 から）
     bpm: 128, root: 43, prog: PROG,
     bass: 'square', pad: 'sawtooth', arp: 'sawtooth', lead: 'square', padCut: 2400,
     melody: [[9, 7, 9, null, 7, 5, 4, null], [5, 4, 2, null, 4, null, 0, null], [7, null, 9, 11, 12, null, 11, 9], [7, null, 5, null, 4, 2, 4, null]],

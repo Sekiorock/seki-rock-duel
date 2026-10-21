@@ -1,8 +1,8 @@
 // 対戦ルール（6章）。v0.5：ストーリーの相手の技（おじゃま）だけ。
 // v0.9 で、熱波・着弾待ち・相殺・バルブ・冷却係を足す。CPU戦とライブ戦で共通にする。
 
-import { frost, tsetC, nmul, applyCard, isValidN, isValidP } from './cards.js?v=0.6.0';
-import { generateProblem } from './puzzle.js?v=0.6.0';
+import { frost, tsetC, nmul, addGas, applyCard, isValidN, isValidP, isValidAmount, isMix } from './cards.js?v=0.7.0';
+import { generateProblem } from './puzzle.js?v=0.7.0';
 
 // 場に出ていない手札の位置（霜は除く）
 function freeSlots(board, pred = () => true) {
@@ -64,4 +64,20 @@ export function leakGas(board, rng) {
   return null;
 }
 
-export const TRICKS = { frost: sendFrost, to_celsius: sendToCelsius, swap_target: swapTarget, leak: leakGas };
+// 気体を混ぜる（ストーリー6章、ドルトンの技）：ボンベに別の気体を入れ、その状態から新しい目標を出す。
+// 体積・温度は同じなので、入れた気体の分圧のぶんだけ全圧が上がる（もとの気体の分圧は変わらない）
+export function mixIn(board, rng) {
+  if (!isMix(board.state)) return leakGas(board, rng);
+  const options = rng.shuffle([['A', 1], ['B', 1], ['A', 2], ['B', 2]]);
+  for (const [gas, k] of options) {
+    const next = applyCard(board.state, addGas(gas, k));
+    if (!isValidAmount(next) || !isValidP(next.P)) continue;
+    board.field.fill(null);
+    const p = generateProblem({ state: next, keep: board.hand.slice(), stage: board.stage, rng, preferModel: null });
+    board.loadProblem(p);
+    return { type: 'mix_in', gas };
+  }
+  return sendFrost(board, rng);
+}
+
+export const TRICKS = { frost: sendFrost, to_celsius: sendToCelsius, swap_target: swapTarget, leak: leakGas, mix_in: mixIn };

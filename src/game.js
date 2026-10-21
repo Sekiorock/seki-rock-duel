@@ -1,9 +1,9 @@
 // 1人分の盤面の進行（選ぶ、出す、判定）。ひとりでも対戦でも同じものを使う。
 
-import { CONFIG } from './config.js?v=0.6.0';
-import { eq } from './frac.js?v=0.6.0';
-import { startState, applySequence, isTempCard } from './cards.js?v=0.6.0';
-import { generateProblem, rerollHand, estimateMistake, enumerateSolutions } from './puzzle.js?v=0.6.0';
+import { CONFIG } from './config.js?v=0.7.0';
+import { eq } from './frac.js?v=0.7.0';
+import { startState, applySequence, isTempCard, measure } from './cards.js?v=0.7.0';
+import { generateProblem, rerollHand, estimateMistake, enumerateSolutions } from './puzzle.js?v=0.7.0';
 
 let uidCounter = 1;
 const withUid = (c) => (c && !c.uid ? { ...c, uid: uidCounter++ } : c);
@@ -15,7 +15,7 @@ export class Board {
     this.stage = stage;
     this.rng = rng;
     this.preferModel = preferModel;
-    this.state = startState();
+    this.state = startState(stage);
     this.hand = Array(CONFIG.HAND_SIZE).fill(null);
     this.field = Array(CONFIG.FIELD_SIZE).fill(null); // 手札の位置（0〜4）を入れる
     this.justCount = 0;
@@ -35,7 +35,7 @@ export class Board {
 
   // 手札を書き換えたあと（おじゃまカードなど）、解の一覧を作り直す
   refreshSolutions() {
-    const r = enumerateSolutions(this.state, this.hand, this.target);
+    const r = enumerateSolutions(this.state, this.hand, this.target, this.goal);
     this.solutions = r.solutions;
     this.minCount = r.minCount;
     return r.solutions.length > 0;
@@ -46,6 +46,7 @@ export class Board {
     this.state = p.state;
     this.hand = p.hand.map(withUid);
     this.target = p.target;
+    this.goal = p.goal || 'P';  // 目標の種類：'P' 全圧、'A'・'B' 分圧（v0.7〜）
     this.solutions = p.solutions;
     this.minCount = p.minCount;
     this.ventilated = p.ventilated;
@@ -97,7 +98,7 @@ export class Board {
     const used = this.field.filter((i) => i !== null);
     const cards = used.map((i) => this.hand[i]);
     const r = applySequence(this.state, cards);
-    const just = r.valid && eq(r.state.P, this.target);
+    const just = r.valid && eq(measure(r.state, this.goal), this.target);
     return {
       kind: just ? 'just' : 'miss',
       valid: r.valid,
@@ -108,7 +109,8 @@ export class Board {
       used,
       count: used.length,
       smart: just && used.length === this.minCount, // v0.3 の得点で使う
-      mistake: just ? null : estimateMistake(this.state, cards, this.target),
+      measured: measure(r.state, this.goal),  // 目標の種類ではかった結果
+      mistake: just ? null : estimateMistake(this.state, cards, this.target, this.goal),
     };
   }
 
@@ -128,7 +130,7 @@ export class Board {
 
   // 引き直し：手札5枚をすべて入れ替える（目標はそのまま）
   reroll() {
-    this._setProblem(rerollHand(this._genArgs({ state: this.state, target: this.target })));
+    this._setProblem(rerollHand(this._genArgs({ state: this.state, target: this.target, goal: this.goal })));
   }
 }
 

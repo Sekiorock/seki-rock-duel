@@ -23,6 +23,8 @@ const JA = {
     5: '℃カード登場 2枚',
     6: '全カード 3枚',
     7: '物質量カード登場 2枚',
+    8: '混合気体 1枚',
+    9: '混合気体 2枚',
   },
 
   stageLabel: '段階',
@@ -52,6 +54,8 @@ const JA = {
     calc: '倍率を1枚ずつ書き出して、順に掛けてみよう',
     range: '途中で体積が使えない値になった。順番を見直そう',
     inverse_n: '気体を増やすと、圧力は大きくなる（物質量に比例）',
+    partial_total: '分圧 = 全圧 × その気体のモル分率。全圧と区別しよう',
+    fixed_total: '体積・温度が同じなら、気体を混ぜると全圧は上がる（分圧の和）',
   },
 
   // ---- v0.3 道場 ----
@@ -97,6 +101,8 @@ const JA = {
     calc: '計算ミス',
     range: '順番で範囲外',
     inverse_n: '物質量の逆転',
+    partial_total: '分圧と全圧の混同',
+    fixed_total: '全圧が一定のまま',
   },
 
   // ---- v0.4 ----
@@ -169,7 +175,7 @@ const JA = {
   masteryLine: (rate, sec, n) => `正答率 ${rate}%・平均 ${sec}秒・${n}回`,
   masteryNone: 'まだデータがありません',
   masteryMore: (n) => `あと${n}回で星を表示`,
-  cardNames: { vmul: '体積カード', vset: '体積指定カード', tset_k: '温度カード（K）', tset_c: '温度カード（℃）', nmul: '物質量カード' },
+  cardNames: { vmul: '体積カード', vset: '体積指定カード', tset_k: '温度カード（K）', tset_c: '温度カード（℃）', nmul: '物質量カード', add: '混ぜるカード' },
   titlesTitle: '称号',
   newTitle: (name) => `称号「${name}」を獲得！`,
   titleNames: {
@@ -182,7 +188,7 @@ const JA = {
     kelvin_user: '温度カードを100回正しく使う', minimalist: 'スマートを50回', lightning: 'スピードを50回',
     chain_child: '道場で15連鎖', fever_regular: 'フィーバーに10回入る', dojo_master: '道場で10,000点',
     daily_three: '今日の5問を3日クリア', collector: '絵柄を20種類集める', shodan: '初段に昇段する',
-    cooling_master: '対戦で冷却ガスを1試合10回（対戦は v0.6 から）',
+    cooling_master: '対戦で冷却ガスを1試合10回（対戦は v0.9 から）',
   },
 
   // ---- v0.5 ストーリー ----
@@ -227,12 +233,13 @@ const JA = {
     frost: (n) => `${n}が霜カードを送ってきた！`,
     to_celsius: (n) => `${n}がKカードを℃に書き換えた！`,
     leak: (n) => `${n}がボンベの気体の量を変えた！`,
+    mix_in: (n) => `${n}が気体を混ぜてきた！`,
   },
   frostHint: '霜カードは場に置けない。次のジャストで溶けるよ',
   oppJust: (name) => `${name}がジャスト！`,
   oppMiss: (name) => `${name}がハズレ`,
   storyPack: 'ごほうびにカードパックを1つもらった',
-  storyNext: '続きは次の版で！ 状態方程式の章へ',
+  storyNext: '続きは次の版で！ 実在気体の章へ',
 
   // ---- v0.6 ----
   leakIn: '気体が入った（物質量が増えた）',
@@ -246,6 +253,14 @@ const JA = {
   kanteiCount: (n) => `鑑定 ${n} 問目`,
   gases: { H2: '水素 H₂（2.0）', He: 'ヘリウム He（4.0）', CH4: 'メタン CH₄（16）', N2: '窒素 N₂（28）', O2: '酸素 O₂（32）', CO2: '二酸化炭素 CO₂（44）' },
 
+  // ---- v0.7 混合気体 ----
+  gasShort: { A: 'N₂', B: 'O₂' },
+  targetPart: (g, p) => `${g}の分圧を ${p} に`,
+  previewPart: (g, p) => `予告：${g}の分圧 → ${p}`,
+  partLabel: ' 分圧 ',
+  amountLabel: '量 ',
+  refilled: 'ボンベがいっぱい！ 空気（N₂:O₂ = 4:1）に入れ替えたよ',
+  mixInNote: (g) => `${g}が入った！ 全圧↑ もう一方の分圧はそのまま`,
   unitP: '×10⁵ Pa',
   unitV: 'L',
   unitT: 'K',
@@ -274,6 +289,8 @@ const EN = {
     5: '°C cards appear ×2',
     6: 'All cards ×3',
     7: 'Mole cards appear ×2',
+    8: 'Gas mixtures ×1',
+    9: 'Gas mixtures ×2',
   },
 
   stageLabel: 'Lv',
@@ -302,6 +319,8 @@ const EN = {
     calc: 'Write each ratio down, card by card, and multiply in order',
     range: 'The volume went out of range on the way. Check the order',
     inverse_n: 'More gas means higher pressure (proportional to amount)',
+    partial_total: 'Partial pressure = total × mole fraction. Keep it apart from the total',
+    fixed_total: 'At the same V and T, adding gas raises the total (sum of partials)',
   },
 
   // ---- v0.3 Dojo ----
@@ -347,6 +366,8 @@ const EN = {
     calc: 'Arithmetic slip',
     range: 'Out of range (order)',
     inverse_n: 'Inverted amount ratio',
+    partial_total: 'Partial vs total mix-up',
+    fixed_total: 'Total kept fixed',
   },
 
   // ---- v0.4 ----
@@ -419,7 +440,7 @@ const EN = {
   masteryLine: (rate, sec, n) => `${rate}% correct · avg ${sec} s · ${n} tries`,
   masteryNone: 'No data yet',
   masteryMore: (n) => `${n} more to rate`,
-  cardNames: { vmul: 'Volume card', vset: 'Set-volume card', tset_k: 'Temp card (K)', tset_c: 'Temp card (°C)', nmul: 'Mole card' },
+  cardNames: { vmul: 'Volume card', vset: 'Set-volume card', tset_k: 'Temp card (K)', tset_c: 'Temp card (°C)', nmul: 'Mole card', add: 'Mixing card' },
   titlesTitle: 'Titles',
   newTitle: (name) => `Title earned: “${name}”`,
   titleNames: {
@@ -432,7 +453,7 @@ const EN = {
     kelvin_user: 'Use temperature cards correctly 100 times', minimalist: '50 Smarts', lightning: '50 Speeds',
     chain_child: '15 chain in the Dojo', fever_regular: 'Enter Fever 10 times', dojo_master: '10,000 points in the Dojo',
     daily_three: 'Clear the Daily Five on 3 days', collector: 'Collect 20 designs', shodan: 'Reach 1st dan',
-    cooling_master: 'Send cooling gas 10 times in one battle (battles from v0.6)',
+    cooling_master: 'Send cooling gas 10 times in one battle (battles from v0.9)',
   },
 
   // ---- v0.5 Story ----
@@ -477,12 +498,13 @@ const EN = {
     frost: (n) => `${n} sent you a frost card!`,
     to_celsius: (n) => `${n} turned a K card into °C!`,
     leak: (n) => `${n} changed the amount of gas!`,
+    mix_in: (n) => `${n} mixed in another gas!`,
   },
   frostHint: "Frost cards can't be played. They melt on your next JUST",
   oppJust: (name) => `${name} got a JUST!`,
   oppMiss: (name) => `${name} missed`,
   storyPack: 'You got a card pack as a reward',
-  storyNext: 'To be continued: the equation of state!',
+  storyNext: 'To be continued: real gases!',
 
   // ---- v0.6 ----
   leakIn: 'Gas was added (more moles)',
@@ -496,6 +518,14 @@ const EN = {
   kanteiCount: (n) => `Sample ${n}`,
   gases: { H2: 'Hydrogen H₂ (2.0)', He: 'Helium He (4.0)', CH4: 'Methane CH₄ (16)', N2: 'Nitrogen N₂ (28)', O2: 'Oxygen O₂ (32)', CO2: 'Carbon dioxide CO₂ (44)' },
 
+  // ---- v0.7 mixed gases ----
+  gasShort: { A: 'N₂', B: 'O₂' },
+  targetPart: (g, p) => `Make p(${g}) = ${p}`,
+  previewPart: (g, p) => `Preview: p(${g}) → ${p}`,
+  partLabel: ' p ',
+  amountLabel: 'amt ',
+  refilled: 'The bombe is full! Refilled with air (N₂:O₂ = 4:1)',
+  mixInNote: (g) => `${g} added! Total ↑, the other partial stays`,
   unitP: '×10⁵ Pa',
   unitV: 'L',
   unitT: 'K',

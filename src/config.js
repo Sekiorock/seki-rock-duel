@@ -3,7 +3,7 @@
 
 export const CONFIG = {
   // タイトル画面の下に出す版番号（13.3 の付け方に従う）
-  VERSION: 'v0.6.0',
+  VERSION: 'v0.7.0',
 
   // ---- ボンベの状態（4.1） ----
   // 圧力 P は 0.1×10⁵ Pa を 1 とする整数、体積 V は 0.5 L を 1 とする整数、温度 T は K の整数
@@ -16,6 +16,17 @@ export const CONFIG = {
   MOL_UNITS: [2, 3, 4, 6, 8, 9, 12, 18],      // 物質量の取りうる値（開始時 6 に対して 1/3〜3 倍）
   NMUL_FACTORS: [[2, 1], [3, 1], [1, 2], [1, 3], [3, 2], [2, 3]], // 物質量カードの倍率
   GAS_R: 8.3e3,                               // 気体定数 R [Pa·L/(mol·K)]（教科書の問題と同じ有効数字2桁）
+
+  // ---- 混合気体（v0.7〜） ----
+  // ボンベに2種類の気体 A（窒素 N₂）と B（酸素 O₂）を入れる。A・B は物質量（相対の値）で、N = A + B
+  // 開始は空気と同じ N₂:O₂ = 4:1。全圧 1.0×10⁵ Pa → 分圧 N₂ 0.8×10⁵ Pa、O₂ 0.2×10⁵ Pa
+  MIX: {
+    START: { P: 10, V: 12, T: 300, A: 4, B: 1 },
+    UNITS: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], // A・B それぞれの取りうる値
+    ADD_K: [1, 2, 3, 4],                            // 混ぜるカードで入れる量
+    PART_MIN: 2,                                    // 分圧の目標の下限（0.2×10⁵ Pa）
+    REFILL_AT: 12,                                  // 物質量の和がこれを超えたら、換気して空気に戻す（混ぜると増える一方なので）
+  },
 
   // ---- カード（4.2） ----
   VMUL_FACTORS: [[2, 1], [3, 1], [1, 2], [1, 3], [3, 2], [2, 3]], // 体積カードの倍率 [分子, 分母]
@@ -71,8 +82,25 @@ export const CONFIG = {
       decoys: [['nmul', 2], ['vmul', 2], ['tset_k', 1], ['tset_c', 1]],
       trapMin: 2,
     },
+    // v0.7：混合気体。goals は目標の種類と出やすさ（P：全圧、A：N₂の分圧、B：O₂の分圧）
+    8: {
+      minCards: 1,
+      mix: true,
+      goals: [['P', 1], ['A', 1], ['B', 2]],
+      patterns: [[['add'], 3], [['vmul'], 1]],
+      decoys: [['add', 3], ['vmul', 1]],
+      trapMin: 1,
+    },
+    9: {
+      minCards: 2,
+      mix: true,
+      goals: [['P', 1], ['A', 1], ['B', 1]],
+      patterns: [[['add', 'vmul'], 3], [['add', 'add'], 2], [['add', 'tset_k'], 2]],
+      decoys: [['add', 3], ['vmul', 2], ['tset_k', 1]],
+      trapMin: 2,
+    },
   },
-  AVAILABLE_STAGES: [1, 2, 3, 4, 5, 6, 7],
+  AVAILABLE_STAGES: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   MAX_DOJO_STAGE: 6,          // 道場・タイムアタックで上がっていく段階の上限（物質量カードは v0.8 の総まとめで加える）
 
   // ---- 問題の生成（4.4） ----
@@ -80,7 +108,8 @@ export const CONFIG = {
   COMBO_TRIES: 60,    // 正解の組み合わせを1つ作るときの試行回数
 
   // ---- 考え違い（4.5）。上にあるものを優先して推定する ----
-  MISTAKE_MODELS: ['inverse_v', 'celsius', 'inverse_t', 'ignore_t', 'inverse_n'],
+  MISTAKE_MODELS: ['inverse_v', 'celsius', 'inverse_t', 'ignore_t', 'inverse_n', 'partial_total', 'fixed_total'],
+  // partial_total：分圧を全圧と取り違える　fixed_total：気体を混ぜても全圧は変わらないと考える（v0.7）
   MISTAKE_HISTORY: 20, // 直近何回のハズレを覚えておくか
 
   // ---- 演出の時間（ミリ秒、5.3） ----
@@ -119,7 +148,7 @@ export const CONFIG = {
     METER_MISS: 15,            // ハズレ
     METER_REROLL: 8,           // 引き直し
     // 自然上昇：+1 になるまでの時間（ミリ秒）。段階が上がるほど速い
-    RISE_MS_BY_STAGE: { 1: 2200, 2: 1800, 3: 1500, 4: 1250, 5: 1000, 6: 850, 7: 1250 },
+    RISE_MS_BY_STAGE: { 1: 2200, 2: 1800, 3: 1500, 4: 1250, 5: 1000, 6: 850, 7: 1250, 8: 1700, 9: 1300 },
     LATE_START_MS: 150000,     // 2分半を過ぎたら
     LATE_FACTOR_PER_MIN: 0.7,  // 1分ごとに、上昇の間隔を 0.7 倍にする（決着を促す）
     CHAIN_TIMEOUT_MS: 20000,   // 前のジャストから20秒で連鎖が切れる
@@ -195,7 +224,7 @@ export const CONFIG = {
     },
     // 問題の段階ごとに、解く時間に掛ける倍率（段階1〜6）
     // 仕様は「1段階ごとに10%長く」だが、人は2枚・3枚の問題で大きく時間がかかるので、それに合わせた
-    STAGE_FACTOR: [1, 1.35, 1.3, 1.75, 2.1, 2.7, 1.9],
+    STAGE_FACTOR: [1, 1.35, 1.3, 1.75, 2.1, 2.7, 1.9, 1.5, 1.9],
   },
 
   // ---- ストーリー（5.5）。v0.5 は1〜4章。5章以降は v0.6〜v0.8 で追加する ----
@@ -207,10 +236,10 @@ export const CONFIG = {
       { id: 3, char: 'kelvin', stages: [4], need: 5, level: 'regular', speed: 1.3, trick: 'frost', trickMs: 22000 },
       { id: 4, char: 'celsius', stages: [5], need: 7, level: 'regular', speed: 1.2, trick: 'to_celsius', trickMs: 18000 },
       { id: 5, char: 'avogadro', stages: [7], need: 5, level: 'regular', speed: 1.2, trick: 'leak', trickMs: 24000 },
+      { id: 6, char: 'dalton', stages: [8, 9], need: 6, level: 'regular', speed: 1.15, trick: 'mix_in', trickMs: 22000 },
     ],
     // これから追加する章（単元全体の地図として、章の一覧に表示する）
     FUTURE: [
-      { id: 6, char: 'dalton', ver: 'v0.7', pages: '46-49' },
       { id: 7, char: 'vdw', ver: 'v0.8', pages: '50-53' },
       { id: 8, char: 'fahrenheit', ver: 'v0.8', pages: '' },
     ],

@@ -6,9 +6,10 @@
 //   温度 T … 左の温度計の高さと、粒の速さ（√T に比例）と粒の色（熱いほど濃い青）
 //   圧力 P … 壁を押す矢印の長さ、気体の色の濃さ、圧力計の針。粒が壁に当たると光る
 //   物質量 n … 粒の数（n に比例。v0.6〜）
+//   混合気体 … 窒素 N₂ はネイビーの粒、酸素 O₂ は白地に青の輪の粒（v0.7〜）。温度は粒の速さと温度計で見る
 
-import { CONFIG } from './config.js?v=0.6.0';
-import { drawChar } from './chars.js?v=0.6.0';
+import { CONFIG } from './config.js?v=0.7.0';
+import { drawChar } from './chars.js?v=0.7.0';
 
 const NAVY = '#1B2A49';
 const BLUE = '#2F6FED';
@@ -62,10 +63,27 @@ export class BombeView {
   _initParticles() {
     let seed = 12345;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let i = 0; i < CONFIG.GAS.PARTICLES * 3; i++) { // 物質量が3倍になっても足りるだけ用意しておく
+    for (let i = 0; i < CONFIG.GAS.PARTICLES * 4; i++) { // 物質量が3倍（混合気体は各12）になっても足りるだけ用意しておく
       const a = rnd() * Math.PI * 2;
       this.particles.push({ x: rnd(), y: rnd(), dx: Math.cos(a), dy: Math.sin(a), sp: 0.7 + rnd() * 0.6 });
     }
+  }
+
+  // いま見えている粒。粒の数は物質量に比例する。混合気体では、用意した粒の前半を N₂、後半を O₂ に使う
+  // （片方を混ぜても、もう片方の粒は入れ替わらない）
+  _liveParticles(st) {
+    const per = CONFIG.GAS.PARTICLES / CONFIG.START_STATE.N; // 物質量 1 あたりの粒の数
+    if (st.A !== undefined) {
+      const half = Math.floor(this.particles.length / 2);
+      const na = Math.min(half, Math.round(per * st.A));
+      const nb = Math.min(half, Math.round(per * st.B));
+      const out = [];
+      for (let i = 0; i < na; i++) { const p = this.particles[i]; p.gas = 'A'; out.push(p); }
+      for (let i = 0; i < nb; i++) { const p = this.particles[half + i]; p.gas = 'B'; out.push(p); }
+      return out;
+    }
+    const count = Math.max(6, Math.min(this.particles.length, Math.round(per * (st.N ?? CONFIG.START_STATE.N))));
+    return this.particles.slice(0, count).map((p) => { p.gas = null; return p; });
   }
 
   resize() {
@@ -119,6 +137,7 @@ export class BombeView {
       const a = sh.seq[i];
       const b = sh.seq[i + 1];
       st = { P: lerp(a.P, b.P, k), V: lerp(a.V, b.V, k), T: lerp(a.T, b.T, k), N: lerp(a.N ?? 6, b.N ?? 6, k) };
+      if (a.A !== undefined && b.A !== undefined) { st.A = lerp(a.A, b.A, k); st.B = lerp(a.B, b.B, k); }
       step = i;
       if (t < 200) alpha = t / 200; // 最初は、ふわっと現れる
     } else if (t < n * seg + S.HOLD_MS) {
@@ -199,6 +218,10 @@ export class BombeView {
         T: lerp(tw.from.T, tw.to.T, e),
         N: lerp(tw.from.N ?? CONFIG.START_STATE.N, tw.to.N ?? CONFIG.START_STATE.N, e),
       };
+      if (tw.to.A !== undefined) {
+        this.cur.A = lerp(tw.from.A ?? tw.to.A, tw.to.A, e);
+        this.cur.B = lerp(tw.from.B ?? tw.to.B, tw.to.B, e);
+      }
       if (t >= 1) {
         this.tween = null;
         // 範囲の外まで動いたら、止め具に当たって揺れる
@@ -219,8 +242,7 @@ export class BombeView {
     const g = this._geom();
     const gas = this._gasRect(g, this.cur.V);
     const speed = CONFIG.GAS.SPEED_AT_300K * Math.sqrt(Math.max(this.cur.T, 1) / 300);
-    const count = Math.round(CONFIG.GAS.PARTICLES * (this.cur.N ?? CONFIG.START_STATE.N) / CONFIG.START_STATE.N);
-    for (const p of this.particles.slice(0, Math.max(6, count))) {
+    for (const p of this._liveParticles(this.cur)) {
       const d = speed * p.sp * dt;
       p.x += (p.dx * d) / gas.w;
       p.y += (p.dy * d) / gas.h;
@@ -444,15 +466,19 @@ export class BombeView {
     ctx.lineWidth = 1.2;
     const r = CONFIG.GAS.RADIUS;
     // 粒の数は物質量に比例する
-    const count = Math.max(6, Math.min(this.particles.length, Math.round(CONFIG.GAS.PARTICLES * (this.cur.N ?? CONFIG.START_STATE.N) / CONFIG.START_STATE.N)));
-    for (const p of this.burstAt ? [] : this.particles.slice(0, count)) {
+    const hot = ctx.fillStyle;
+    for (const p of this.burstAt ? [] : this._liveParticles(this.cur)) {
       const x = gas.left + r + p.x * (gas.w - r * 2);
       const y = gas.top + r + p.y * Math.max(0, gas.h - r * 2);
+      if (p.gas === 'A') { ctx.fillStyle = NAVY; ctx.strokeStyle = NAVY; ctx.lineWidth = 1.2; }
+      else if (p.gas === 'B') { ctx.fillStyle = WHITE; ctx.strokeStyle = BLUE; ctx.lineWidth = 2.2; }
+      else { ctx.fillStyle = hot; ctx.strokeStyle = NAVY; ctx.lineWidth = 1.2; }
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     }
+    ctx.lineWidth = 1.2;
 
     // 圧力の矢印（気体が壁を押す力。長さは P に比例）
     const len = 8 + 30 * Math.min(pressureT, 1.05);

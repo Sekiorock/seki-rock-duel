@@ -45,6 +45,7 @@ export const ARTS = [
   { id: 'kimo_celsius', rarity: 'kimo', ja: '白目セルシウス', en: 'White-eyed Celsius', char: 'celsius', expr: 'whiteeye' },
   { id: 'kimo_kelvin', rarity: 'kimo', ja: '昇天ケルビン', en: 'Ascending Kelvin', char: 'kelvin', expr: 'ascend' },
   { id: 'kimo_avogadro', rarity: 'kimo', ja: '白目アボガドロ', en: 'White-eyed Avogadro', char: 'avogadro', expr: 'whiteeye' },
+  { id: 'kimo_dalton', rarity: 'kimo', ja: '昇天ドルトン', en: 'Ascending Dalton', char: 'dalton', expr: 'ascend' },
   { id: 'kimo_thermo', rarity: 'kimo', ja: 'べろ出し温度計', en: 'Tongue-out Thermometer' },
   { id: 'kimo_molecule', rarity: 'kimo', ja: '目玉の分子', en: 'Eyeball Molecule' },
 ];

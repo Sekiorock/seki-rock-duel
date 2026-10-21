@@ -1,32 +1,46 @@
 // 全体の進行（画面の切り替え）と、盤面の表示・タッチ操作。
 // 練習室・道場・タイムアタック・今日の5問・昇段試験は、同じプレイ画面を使う（run.kind で切り替える）。
 
-import { CONFIG } from './config.js?v=0.6.0';
-import { TEXT, formatP, formatV, formatT, formatMol, setLang, getLang, LANGS } from './text.js?v=0.6.0';
-import { toNumber } from './frac.js?v=0.6.0';
-import { createRng, randomSeed } from './rng.js?v=0.6.0';
-import { cardLines, isTempCard } from './cards.js?v=0.6.0';
-import { trapModelsInHand } from './puzzle.js?v=0.6.0';
+import { CONFIG } from './config.js?v=0.7.0';
+import { TEXT, formatP, formatV, formatT, formatMol, setLang, getLang, LANGS } from './text.js?v=0.7.0';
+import { toNumber } from './frac.js?v=0.7.0';
+import { createRng, randomSeed } from './rng.js?v=0.7.0';
+import { cardLines, isTempCard, isMix, measure } from './cards.js?v=0.7.0';
+import { trapModelsInHand } from './puzzle.js?v=0.7.0';
 import {
   Dojo, PracticeRun, TimeAttack, DailyRun, ExamRun, StoryDuel, chapterOf, dateKey, makeKantei,
   rankProgress, examAvailable, dojoExp, taExp, dailyExp, rollPack, earnedTitles, TITLES,
   addMastery, masteryStars, MASTERY_CARDS,
-} from './solo.js?v=0.6.0';
-import { BombeView, FxLayer } from './render.js?v=0.6.0';
-import { AudioEngine } from './audio.js?v=0.6.0';
-import { Music } from './music.js?v=0.6.0';
-import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=0.6.0';
-import { STORY_TEXT } from './story_text.js?v=0.6.0';
+} from './solo.js?v=0.7.0';
+import { BombeView, FxLayer } from './render.js?v=0.7.0';
+import { AudioEngine } from './audio.js?v=0.7.0';
+import { Music } from './music.js?v=0.7.0';
+import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=0.7.0';
+import { STORY_TEXT } from './story_text.js?v=0.7.0';
 import {
   migrate, loadSettings, saveSettings, recordMistake, favoriteMistake,
   loadRecords, saveRecords, loadProfile, saveProfile, loadCollection, saveCollection,
   loadTitles, saveTitles, loadMastery, saveMastery, loadStory, saveStory,
-} from './storage.js?v=0.6.0';
+} from './storage.js?v=0.7.0';
 
 const $ = (id) => document.getElementById(id);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const vibrate = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* 対応していない端末 */ } };
-const num = (s) => ({ P: toNumber(s.P), V: toNumber(s.V), T: toNumber(s.T), N: s.N ? toNumber(s.N) : CONFIG.START_STATE.N });
+const num = (s) => {
+  const o = { P: toNumber(s.P), V: toNumber(s.V), T: toNumber(s.T), N: s.N ? toNumber(s.N) : CONFIG.START_STATE.N };
+  if (s.A) { o.A = toNumber(s.A); o.B = toNumber(s.B); } // 混合気体（v0.7〜）
+  return o;
+};
+// 圧力計の目標の印は、全圧が目標のときだけ（分圧が目標のときは、分圧の帯に印を出す）
+const gaugeTarget = () => (board.goal === 'P' ? toNumber(board.target) : null);
+function setTargetText() {
+  $('target-text').textContent = targetStr();
+  $('target-text').classList.toggle('part', board.goal !== 'P'); // 分圧の目標は文が長いので少し小さく
+}
+// 目標カードの文
+const targetStr = () => (board.goal === 'P'
+  ? TEXT.targetText(formatP(board.target))
+  : TEXT.targetPart(TEXT.gasShort[board.goal], formatP(board.target)));
 const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
 const replay = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -96,9 +110,10 @@ function toggleLang() {
   saveSettings(settings);
   applyTexts();
   if (run && board) {
+    if (run.kind === 'story') $('vs-name').textContent = TEXT.charNames[run.ch.char]; // 相手の名前も切り替える
     renderTargetLabel();
     updateHud();
-    $('target-text').textContent = TEXT.targetText(formatP(board.target));
+    setTargetText();
     if (!busy) {
       hideMessage();
       hideHint();
@@ -329,7 +344,7 @@ function enterPlay() {
   hideHint();
   renderAll();
   updateHud();
-  view.set(num(board.state), toNumber(board.target));
+  view.set(num(board.state), gaugeTarget());
   targetWall = performance.now();
   showMessage(run.kind === 'exam' ? TEXT.examRule(TEXT.ranks[run.targetRank], run.stage, CONFIG.RANK.EXAM_JUSTS)
     : run.kind === 'story' ? TEXT.duelRule(run.need) : TEXT.handHint, 'soft');
@@ -426,13 +441,15 @@ function useTrick() {
   setOppExpr('smug');
   audio.feverStart(false);
   renderAll();
-  view.set(num(board.state), toNumber(board.target));
+  view.set(num(board.state), gaugeTarget());
   if (r.type === 'swap_target') { replay(document.querySelector('.target-card'), 'pop'); targetWall = performance.now(); }
   const msg = TEXT.trickMsg[r.type](TEXT.charNames[run.ch.char]);
   showBanner(msg);
-  const note = r.type === 'frost' ? TEXT.frostHint : r.type === 'leak' ? (r.dir === 'in' ? TEXT.leakIn : TEXT.leakOut) : msg;
+  const note = r.type === 'frost' ? TEXT.frostHint
+    : r.type === 'leak' ? (r.dir === 'in' ? TEXT.leakIn : TEXT.leakOut)
+      : r.type === 'mix_in' ? TEXT.mixInNote(TEXT.gasShort[r.gas]) : msg;
   showMessage(note, 'show', CONFIG.ANIM.NOTICE_MS);
-  if (r.type === 'leak') { replay(document.querySelector('.target-card'), 'pop'); targetWall = performance.now(); }
+  if (r.type === 'leak' || r.type === 'mix_in') { replay(document.querySelector('.target-card'), 'pop'); targetWall = performance.now(); }
 }
 
 function updateHud() {
@@ -549,19 +566,47 @@ function renderAll() {
   $('stage-num').textContent = String(board.stage);
   $('just-count').textContent = String(board.justCount);
   renderTargetLabel();
-  $('target-text').textContent = TEXT.targetText(formatP(board.target));
+  setTargetText();
   renderState(board.state);
   renderField();
   renderHand();
 }
 
 function renderState(s) {
-  // 物質量カードがある段階（7〜）では、物質量 n = pV/(RT) も表示する
-  const showN = board && board.stage >= 7;
+  // 物質量カードがある段階（7）では、物質量 n = pV/(RT) も表示する
+  const mixed = isMix(s);
+  const showN = board && board.stage >= 7 && !mixed;
   $('state-text').innerHTML =
     `<span><i>P</i>${formatP(s.P)}</span><span><i>V</i>${formatV(s.V)}</span><span><i>T</i>${formatT(s.T)}</span>`
-    + (showN ? `<span><i>n</i>${formatMol(s)}</span>` : '');
+    + (showN ? `<span><i>n</i>${formatMol(s)}</span>` : '')
+    + (mixed ? mixBarHTML(s) : '');
   $('state-text').classList.toggle('with-n', !!showN);
+  $('state-text').classList.toggle('with-mix', mixed);
+}
+
+// 分圧の帯（v0.7〜）：帯の長さは全圧、区切りは物質量の比（= 分圧の比）。全圧 = 分圧の和が見える
+// 分圧が目標のときは、その気体を左に置き、目標の位置に印をつける
+function mixBarHTML(s) {
+  const P = toNumber(s.P);
+  const N = toNumber(s.A) + toNumber(s.B);
+  const pa = P * toNumber(s.A) / N;
+  const pb = P * toNumber(s.B) / N;
+  const goal = board ? board.goal : 'P';
+  const tgt = board ? toNumber(board.target) : 0;
+  const scale = [30, 60, 90].find((x) => x >= Math.max(P, tgt) * 1.05) || 90;
+  const seg = (g, v) => `<i class="seg ${g.toLowerCase()}" style="width:${(v / scale * 100).toFixed(2)}%"></i>`;
+  const order = goal === 'B' ? [['B', pb], ['A', pa]] : [['A', pa], ['B', pb]];
+  const mark = `<em class="goal-mark" style="left:${(tgt / scale * 100).toFixed(2)}%"></em>`;
+  const pf = (v) => formatP(fracOf(v));
+  const leg = (g, v, amt) => `<span class="lg ${g.toLowerCase()}${goal === g ? ' is-goal' : ''}"><b>${TEXT.gasShort[g]}</b>${TEXT.partLabel}${pf(v)}<small>${TEXT.amountLabel}${fmtAmt(amt)}</small></span>`;
+  return `<div class="mixbar"><div class="mix-track${goal === 'P' ? ' goal-total' : ''}">${order.map(([g, v]) => seg(g, v)).join('')}${board ? mark : ''}</div>`
+    + `<div class="mix-legend">${leg('A', pa, s.A)}${leg('B', pb, s.B)}</div></div>`;
+}
+const fmtAmt = (x) => { const v = toNumber(x); return Number.isInteger(v) ? String(v) : v.toFixed(1); };
+// 表示用：数を分数に直す（分母は小さいものだけ）
+function fracOf(v) {
+  for (let d = 1; d <= 60; d++) { const n = Math.round(v * d); if (Math.abs(n / d - v) < 1e-9) return { n, d }; }
+  return { n: Math.round(v * 100), d: 100 };
 }
 
 function showMessage(text, kind = 'show', ms = 0) {
@@ -617,7 +662,8 @@ function updatePreview() {
   view.setShadow(seq, (i) => {
     document.querySelectorAll('.slot .card').forEach((c, k) => c.classList.toggle('sim', k === i));
   });
-  showMessage(r.valid ? TEXT.preview(formatP(r.state.P)) : TEXT.previewInvalid, 'preview');
+  const pv = board.goal === 'P' ? TEXT.preview(formatP(r.state.P)) : TEXT.previewPart(TEXT.gasShort[board.goal], formatP(measure(r.state, board.goal)));
+  showMessage(r.valid ? pv : TEXT.previewInvalid, 'preview');
 }
 
 // ---------- カードの見た目 ----------
@@ -630,6 +676,8 @@ const ICONS = {
   tset_k: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3a2 2 0 0 1 4 0v9.3a4 4 0 1 1-4 0z" fill="#fff" stroke="#1B2A49" stroke-width="2"/><circle cx="10" cy="15" r="2.2" fill="#2F6FED"/><path d="M10 13V7" stroke="#2F6FED" stroke-width="2"/><path d="M13 5h2M13 8h2M13 11h2" stroke="#1B2A49" stroke-width="1.5"/></svg>',
   // 物質量カード：粒の集まり
   nmul: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="6" cy="7" r="3" fill="#2F6FED" stroke="#1B2A49" stroke-width="1.5"/><circle cx="13" cy="6" r="3" fill="#DCE7FD" stroke="#1B2A49" stroke-width="1.5"/><circle cx="9" cy="13" r="3" fill="#2F6FED" stroke="#1B2A49" stroke-width="1.5"/><circle cx="15.5" cy="13.5" r="2.5" fill="#fff" stroke="#1B2A49" stroke-width="1.5"/></svg>',
+  // 混ぜるカード：別の気体の粒が入ってくる
+  add: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6v11h14V6" fill="none" stroke="#1B2A49" stroke-width="2" stroke-linejoin="round"/><circle cx="7" cy="13" r="2.2" fill="#1B2A49"/><circle cx="13" cy="12.5" r="2.2" fill="#fff" stroke="#2F6FED" stroke-width="1.8"/><path d="M10 1.5v6M7.5 5l2.5 2.5L12.5 5" fill="none" stroke="#2F6FED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   // 温度カード（℃）：目盛りが途中でずれた温度計（セルシウスの罠の目印）
   tset_c: '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3a2 2 0 0 1 4 0v9.3a4 4 0 1 1-4 0z" fill="#fff" stroke="#1B2A49" stroke-width="2"/><circle cx="10" cy="15" r="2.2" fill="#2F6FED"/><path d="M10 13V7" stroke="#2F6FED" stroke-width="2"/><path d="M13 4h2M13 7h2M14 9.5h3M14 12h3" stroke="#1B2A49" stroke-width="1.5"/></svg>',
 };
@@ -643,7 +691,8 @@ function cardHTML(card) {
 
 function makeCard(card) {
   const el = document.createElement('div');
-  el.className = 'card' + (isTempCard(card) ? ' temp' : '') + (card.type === 'frost' ? ' frost-card' : '');
+  el.className = 'card' + (isTempCard(card) ? ' temp' : '') + (card.type === 'frost' ? ' frost-card' : '')
+    + (card.type === 'add' ? ` mix-card gas-${card.gas.toLowerCase()}` : '');
   el.innerHTML = cardHTML(card);
   el.setAttribute('role', 'button');
   return el;
@@ -854,7 +903,7 @@ $('btn-duel').addEventListener('click', async () => {
   busy = true;
   const pressAt = run.clock;
   const snap = {
-    traps: trapModelsInHand(board.state, board.hand, board.target),
+    traps: trapModelsInHand(board.state, board.hand, board.target, board.goal),
     hadCelsius: board.hand.some((c) => c && c.type === 'tset_c'),
     stage: board.stage,
     ms: performance.now() - targetWall,
@@ -948,10 +997,10 @@ async function onJustShown(result, pressAt, snap) {
   // 5) 次の目標カード
   clearStamps();
   renderAll();
-  view.set(num(board.state), toNumber(board.target));
+  view.set(num(board.state), gaugeTarget());
   targetWall = performance.now();
   replay(document.querySelector('.target-card'), 'pop');
-  if (board.ventilated) showMessage(TEXT.ventilated, 'show', A.NOTICE_MS);
+  if (board.ventilated) showMessage(isMix(board.state) ? TEXT.refilled : TEXT.ventilated, 'show', A.NOTICE_MS);
   else if (info.stageUp) showMessage(TEXT.stageUp(board.stage), 'show', A.NOTICE_MS);
 }
 
@@ -967,7 +1016,7 @@ async function onMissShown(result, snap) {
   if (result.mistake !== 'range') recordMistake(result.mistake, CONFIG.MISTAKE_HISTORY);
   recordDuel(result, snap, null);
   showHint(TEXT.mistakes[result.mistake] || TEXT.mistakes.calc, A.MISS_MSG_MS);
-  if (result.valid) showMessage(TEXT.missResult(formatP(result.after.P)), 'show', A.MISS_MSG_MS);
+  if (result.valid) showMessage(TEXT.missResult(board.goal === 'P' ? formatP(result.after.P) : `${TEXT.gasShort[board.goal]} ${formatP(result.measured)}`), 'show', A.MISS_MSG_MS);
   run.onMiss(result);
   if (run.kind === 'dojo') music.setState({ chain: 0, fever: !!run.fever, superFever: !!(run.fever && run.fever.super) });
   else music.setState({ chain: 0 });
@@ -994,8 +1043,8 @@ $('btn-reroll').addEventListener('click', () => {
   run.onReroll();
   updateHud();
   renderAll();
-  view.set(num(board.state), toNumber(board.target));
-  showMessage(board.ventilated ? TEXT.ventilated : TEXT.rerolled, 'show', CONFIG.ANIM.NOTICE_MS);
+  view.set(num(board.state), gaugeTarget());
+  showMessage(board.ventilated ? (isMix(board.state) ? TEXT.refilled : TEXT.ventilated) : TEXT.rerolled, 'show', CONFIG.ANIM.NOTICE_MS);
   if (run.over) endOfRun();
 });
 
@@ -1549,6 +1598,12 @@ const talkPanels = () => storyText().chapters[talk.chapterId][talk.part];
 function fmtDemo(st) {
   const t = Math.round(st.T);
   const base = `P ${(st.P / 10).toFixed(1)}×10⁵ Pa　V ${(st.V / 2).toFixed(1)} L　T ${t} K`;
+  // 混合気体の解説（6章）では、分圧の内訳を出す（全圧 = N₂ の分圧 + O₂ の分圧）
+  if (st.A !== undefined) {
+    const N = st.A + st.B;
+    const f = (x) => (x / 10).toFixed(1);
+    return `P ${f(st.P)}×10⁵ Pa = N₂ ${f(st.P * st.A / N)} + O₂ ${f(st.P * st.B / N)}　V ${(st.V / 2).toFixed(1)} L`;
+  }
   // 物質量が変わる解説（5章〜）では n も出す。n = pV/(RT)
   if (st.N !== undefined) {
     const n = (st.P * 1e4 * (st.V / 2)) / (CONFIG.GAS_R * st.T);
