@@ -7,7 +7,7 @@
   <meta name="format-detection" content="telephone=no">
   <title>セキオロックデュエル</title>
   <!-- ?v= は版番号。版が変わるたびに必ず新しいファイルを読み込ませるための印 -->
-  <link rel="stylesheet" href="style.css?v=0.6.0">
+  <link rel="stylesheet" href="style.css?v=0.8.0">
   <script>
     // 読み込みに失敗したとき（古いファイルが混ざったときなど）に、白い画面のままにしない
     (function () {
@@ -68,7 +68,7 @@
         </div>
       </div>
     </div>
-    <p id="version" class="version">v0.6.0</p>
+    <p id="version" class="version">v0.8.0</p>
   </section>
 
   <!-- ストーリー：章の一覧（単元全体の地図） -->
@@ -101,6 +101,7 @@
         <p id="lesson-ref" class="lesson-ref"></p>
         <h3 id="lesson-title"></h3>
         <div class="lesson-demo"><canvas id="lesson-bombe"></canvas></div>
+        <div class="lesson-graph"><canvas id="lesson-graph"></canvas></div>
         <p id="lesson-state" class="lesson-state num"></p>
         <p id="lesson-text" class="lesson-text"></p>
       </div>
@@ -200,6 +201,9 @@
     <div id="stage-grid" class="stage-grid"></div>
     <button id="btn-kantei" class="menu-btn kantei-btn" type="button">
       <b data-t="kantei">分子量の鑑定</b><small id="kantei-sub" data-t="kanteiDesc">M = mRT/(pV) で気体を見分ける</small>
+    </button>
+    <button id="btn-zlab" class="menu-btn kantei-btn" type="button">
+      <b data-t="zLab">実在気体のZ判定</b><small id="zlab-sub" data-t="zLabDesc">理想気体に近いのはどれ？</small>
     </button>
   </section>
 
@@ -331,6 +335,6 @@
   </div>
 
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
-  <script type="module" src="src/main.js?v=0.6.0"></script>
+  <script type="module" src="src/main.js?v=0.8.0"></script>
 </body>
 </html>

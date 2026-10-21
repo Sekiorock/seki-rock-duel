@@ -1,8 +1,9 @@
 // 対戦ルール（6章）。v0.5：ストーリーの相手の技（おじゃま）だけ。
 // v0.9 で、熱波・着弾待ち・相殺・バルブ・冷却係を足す。CPU戦とライブ戦で共通にする。
 
-import { frost, tsetC, nmul, addGas, applyCard, isValidN, isValidP, isValidAmount, isMix } from './cards.js?v=0.7.0';
-import { generateProblem } from './puzzle.js?v=0.7.0';
+import { frost, tsetC, tsetF, nmul, addGas, applyCard, isValidN, isValidP, isValidAmount, isMix } from './cards.js?v=0.8.0';
+import { CONFIG } from './config.js?v=0.8.0';
+import { generateProblem } from './puzzle.js?v=0.8.0';
 
 // 場に出ていない手札の位置（霜は除く）
 function freeSlots(board, pred = () => true) {
@@ -80,4 +81,35 @@ export function mixIn(board, rng) {
   return sendFrost(board, rng);
 }
 
-export const TRICKS = { frost: sendFrost, to_celsius: sendToCelsius, swap_target: swapTarget, leak: leakGas, mix_in: mixIn };
+// Z≠1カード（7章、ファンデルワールスの技）：霜と同じく手札の枠を1つふさぐ。
+// 「実在気体は pV = nRT からずれる」ことの目印。次のジャストで消える
+export function sendRealGas(board, rng) {
+  const slots = freeSlots(board);
+  if (!slots.length) return null;
+  const i = rng.pick(slots);
+  board.hand[i] = { ...frost('z'), uid: `z-${Date.now()}-${i}` };
+  const rebuilt = ensureSolvable(board, rng);
+  return { type: 'real_gas', slot: i, rebuilt };
+}
+
+// ℉化（隠し章、ファーレンハイトの技）：手札の K・℃ の温度カード1枚を、同じ温度の℉表記に書き換える
+export function sendToFahrenheit(board, rng) {
+  const slots = freeSlots(board, (c) => c.type === 'tset_k' || c.type === 'tset_c');
+  if (slots.length) {
+    const i = rng.pick(slots);
+    board.hand[i] = { ...tsetF(board.hand[i].k), uid: `fah-${Date.now()}-${i}` };
+    board.refreshSolutions();
+    return { type: 'to_fahrenheit', slot: i };
+  }
+  // K・℃のカードがないときは、正解に使わないカード1枚を、新しい℉カードに入れ替える
+  const used = new Set(board.solutions.flat());
+  const free = freeSlots(board);
+  const cand = free.filter((i) => !used.has(i));
+  if (!free.length) return null;
+  const i = rng.pick(cand.length ? cand : free);
+  board.hand[i] = { ...tsetF(rng.pick(CONFIG.TEMPS_K)), uid: `fah-${Date.now()}-${i}` };
+  ensureSolvable(board, rng);
+  return { type: 'to_fahrenheit', slot: i };
+}
+
+export const TRICKS = { frost: sendFrost, to_celsius: sendToCelsius, swap_target: swapTarget, leak: leakGas, mix_in: mixIn, real_gas: sendRealGas, to_fahrenheit: sendToFahrenheit };

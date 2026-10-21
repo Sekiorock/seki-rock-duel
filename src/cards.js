@@ -3,22 +3,25 @@
 // N は物質量（v0.6〜）。開始時の物質量を 6 とする相対の値（6 → 12 で 2 倍）。実際の mol は pV/(RT) で表示する。
 // 混合気体（v0.7〜）では、さらに A（窒素 N₂）と B（酸素 O₂）の物質量を持つ。N = A + B
 
-import { frac, mul, div, add, isInt } from './frac.js?v=0.7.0';
-import { CONFIG } from './config.js?v=0.7.0';
+import { frac, mul, div, add, isInt } from './frac.js?v=0.8.0';
+import { CONFIG } from './config.js?v=0.8.0';
 
 // ---- カードを作る ----
 export const vmul = (num, den) => ({ type: 'vmul', num, den });   // 体積を num/den 倍
 export const vset = (v) => ({ type: 'vset', v });                 // 体積を v（0.5 L 単位）にする
 export const tsetK = (k) => ({ type: 'tset_k', k });              // 温度を k [K] にする
 export const tsetC = (k) => ({ type: 'tset_c', k });              // 温度を k [K] にする（℃で表記）
+export const tsetF = (k) => ({ type: 'tset_f', k });              // 温度を k [K] にする（℉で表記。隠し章、v0.8）
 export const nmul = (num, den) => ({ type: 'nmul', num, den });   // 物質量を num/den 倍（気体を入れる・抜く）
 
 export const addGas = (gas, k) => ({ type: 'add', gas, k });     // 気体 gas（'A' か 'B'）を k だけ混ぜる（v0.7）
 
-export const frost = () => ({ type: 'frost' });                    // おじゃまカード：霜（場に置けない）
+export const frost = (skin = null) => (skin ? { type: 'frost', skin } : { type: 'frost' }); // skin 'z'：7章の「Z≠1カード」                    // おじゃまカード：霜（場に置けない）
 export const isTempCard = (c) => !!c && CONFIG.TEMP_TYPES.includes(c.type);
 export const isPlayable = (c) => !!c && c.type !== 'frost';
 export const celsiusOf = (k) => k - CONFIG.KELVIN_OFFSET;
+// ℉ = ℃ × 9/5 + 32。カードには整数に丸めた値を書く（例：300 K = 27℃ → 80.6 → 81℉）
+export const fahrenheitOf = (k) => Math.round(celsiusOf(k) * 9 / 5 + 32);
 
 // stage を渡すと、その段階の開始状態（混合気体の段階なら N₂:O₂ = 4:1 の空気）
 export function startState(stage = null) {
@@ -78,6 +81,7 @@ export function applyCard(s, card, model = null) {
   else if (card.type === 'vset') V2 = frac(card.v);
   else if (card.type === 'tset_k') T2 = frac(card.k);
   else if (card.type === 'tset_c') T2 = model === 'celsius' ? frac(celsiusOf(card.k)) : frac(card.k);
+  else if (card.type === 'tset_f') T2 = model === 'fahrenheit' ? frac(fahrenheitOf(card.k) + CONFIG.KELVIN_OFFSET) : frac(card.k);
   if (model === 'ignore_t') T2 = s.T;
 
   const vRatio = model === 'inverse_v' ? div(V2, s.V) : div(s.V, V2);
@@ -123,8 +127,12 @@ export function cardLines(card) {
       return { top: 'n', bottom: card.den === 1 ? `×${card.num}` : `×${card.num}/${card.den}` };
     case 'add':
       return { top: card.gas === 'A' ? 'N₂' : 'O₂', bottom: `+${card.k}` };
+    case 'tset_f': {
+      const f = fahrenheitOf(card.k);
+      return { top: 'T →', bottom: `${f < 0 ? '−' + Math.abs(f) : f}°F` };
+    }
     case 'frost':
-      return { top: '❄', bottom: '' };
+      return card.skin === 'z' ? { top: 'Z≠1', bottom: '' } : { top: '❄', bottom: '' };
     default:
       return { top: '?', bottom: '' };
   }

@@ -90,6 +90,7 @@ const DEFAULT_RECORDS = {
   dojoBest: 0, dojoMaxChain: 0, dojoPlays: 0,
   taBest: 0, taPlays: 0,
   daily: {},            // { YYYYMMDD: { cards, timeMs, misses } }
+  finalBest: 0,         // 総まとめ試験の最高点（v0.8）
   totals: { ...DEFAULT_TOTALS },
 };
 
@@ -133,7 +134,8 @@ export const saveMastery = (m) => save('mastery', m);
 
 // ---- ストーリー（srd.story） ----
 // cleared：{ 章: true }、friends：仲間にしたキャラクター、quiz：{ 章: { first, total } }、losses：{ 章: 負けた回数 }
-const DEFAULT_STORY = { cleared: {}, friends: [], quiz: {}, losses: {}, seen: {} };
+// final：総まとめ試験の記録 { best, grade, plays }（v0.8。受けるまでは null）
+const DEFAULT_STORY = { cleared: {}, friends: [], quiz: {}, losses: {}, seen: {}, final: null };
 export function loadStory() {
   const st = merge(DEFAULT_STORY, load('story', {}));
   for (const k of ['cleared', 'quiz', 'losses', 'seen']) if (!isObj(st[k])) st[k] = {};

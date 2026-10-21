@@ -2,14 +2,15 @@
 // v0.3：道場。v0.4：タイムアタック、今日の5問、昇段試験、段位と経験値、カードパック、称号、熟練度。
 // どのモードも同じ形（board, clock, over, tick, onJust, onMiss, onReroll, summary）で、画面側から同じように扱える。
 
-import { CONFIG } from './config.js?v=0.7.0';
-import { Board, Vitals } from './game.js?v=0.7.0';
-import { generateProblem } from './puzzle.js?v=0.7.0';
-import { createRng } from './rng.js?v=0.7.0';
-import { frac } from './frac.js?v=0.7.0';
-import { ARTS } from './chars.js?v=0.7.0';
-import { Bot } from './bots.js?v=0.7.0';
-import { TRICKS } from './battle.js?v=0.7.0';
+import { CONFIG } from './config.js?v=0.8.0';
+import { Board, Vitals } from './game.js?v=0.8.0';
+import { generateProblem } from './puzzle.js?v=0.8.0';
+import { createRng } from './rng.js?v=0.8.0';
+import { frac } from './frac.js?v=0.8.0';
+import { ARTS } from './chars.js?v=0.8.0';
+import { Bot } from './bots.js?v=0.8.0';
+import { TRICKS } from './battle.js?v=0.8.0';
+import { startState } from './cards.js?v=0.8.0';
 
 export class Dojo {
   constructor({ rng, preferModel }) {
@@ -418,7 +419,8 @@ export const TITLES = [
   { id: 'daily_three', check: (d) => d.records.totals.dailyDays >= 3 },
   { id: 'collector', check: (d) => Object.keys(d.collection.owned).length >= 20 },
   { id: 'shodan', check: (d) => d.profile.rank >= 10 },
-  { id: 'cooling_master', check: (d) => d.records.totals.coolGasMaxInMatch >= 10 }, // 対戦（v0.6）で冷却ガスを1試合10回
+  { id: 'cooling_master', check: (d) => d.records.totals.coolGasMaxInMatch >= 10 }, // 対戦（v0.9）で冷却ガスを1試合10回
+  { id: 'gas_master', check: (d) => (d.records.finalBest || 0) >= 90 },             // 総まとめ試験で90点以上（v0.8）
 ];
 
 export function earnedTitles(d) {
@@ -426,7 +428,7 @@ export function earnedTitles(d) {
 }
 
 // ---------- 熟練度 ----------
-export const MASTERY_CARDS = ['vmul', 'vset', 'tset_k', 'tset_c', 'nmul', 'add'];
+export const MASTERY_CARDS = ['vmul', 'vset', 'tset_k', 'tset_c', 'nmul', 'add', 'tset_f'];
 
 // 1回のデュエルを熟練度に記録する
 // types：出したカードの種類、traps：その問題の手札にあった罠の考え違い、ok：ジャストか、ms：かかった時間
@@ -483,7 +485,7 @@ export class StoryDuel {
   get stage() { return this.board.stage; }
 
   riseMs() {
-    return (CONFIG.DOJO.RISE_MS_BY_STAGE[this.stage] || 2000) * CONFIG.STORY.RISE_SLOW;
+    return (CONFIG.DOJO.RISE_MS_BY_STAGE[this.stage] || 2000) * (this.ch.riseSlow || CONFIG.STORY.RISE_SLOW); // 章ごとに変えられる
   }
 
   tick(dt) {
@@ -602,4 +604,86 @@ export function makeKantei(rng) {
     };
   }
   throw new Error('鑑定の問題を作れなかった');
+}
+
+// ---------- 実在気体の Z 判定（7章の確認問題と練習室。v0.8） ----------
+// 教科書の範囲（Z の考え方）だけを使う。数値のデータは使わず、傾向だけで答えが1つに決まる問題にする
+//   cond：同じ気体で、条件（温度・圧力）のちがう4つから、理想気体に最も近いものを選ぶ → 高温・低圧
+//   gas ：同じ条件で、気体の種類のちがう4つから、理想気体に最も近いものを選ぶ → 分子間力の小さい He・H₂
+export const Z_GASES_NEAR = ['He', 'H2'];
+export const Z_GASES_FAR = ['CO2', 'NH3', 'CH4'];
+export function makeZQuiz(rng) {
+  if (rng.next() < 0.6) {
+    const gas = rng.pick([...Z_GASES_FAR, 'N2']);
+    const [lo, hi] = rng.pick([[200, 500], [250, 600], [300, 700], [200, 400]]);
+    const pHigh = rng.pick([5e6, 1e7, 2e7]);
+    const pLow = rng.pick([1e5, 2e5]);
+    // 0 番が正解（高温・低圧）。残りは、低温・高圧／高温・高圧／低温・低圧
+    return { kind: 'cond', gas, choices: [[hi, pLow], [lo, pHigh], [hi, pHigh], [lo, pLow]] };
+  }
+  return { kind: 'gas', choices: [rng.pick(Z_GASES_NEAR), ...rng.shuffle(Z_GASES_FAR.slice())] };
+}
+
+// ---------- 総まとめ試験（v0.8）：デュエル10問 ＋ 確認問題10問 ----------
+// デュエルは段階2〜9から。引き直しはなし。1回目でジャストなら5点、ハズレのあとなら3点
+export class FinalRun {
+  constructor({ rng }) {
+    const F = CONFIG.STORY.FINAL;
+    this.kind = 'final';
+    this.canReroll = false;
+    this.rng = rng;
+    this.list = F.STAGES.map((stage) => ({ stage, problem: generateProblem({ state: startState(stage), keep: null, stage, rng, preferModel: null }) }));
+    this.index = 0;
+    this.board = new Board({ stage: this.list[0].stage, rng, problem: this.list[0].problem });
+    this.clock = 0;
+    this.points = 0;
+    this.firsts = 0;
+    this.missesNow = 0;       // 今の問題でのハズレの回数
+    this.misses = 0;
+    this.mistakes = {};
+    this.over = false;
+    this.cleared = false;
+  }
+
+  get stage() { return this.board.stage; }
+  get total() { return this.list.length; }
+  tick(dt) { if (!this.over) this.clock += dt; return []; }
+
+  onJust(result) {
+    const F = CONFIG.STORY.FINAL;
+    const first = this.missesNow === 0;
+    this.points += first ? F.DUEL_FIRST : F.DUEL_LATER;
+    if (first) this.firsts++;
+    this.missesNow = 0;
+    this.index++;
+    this.board.justCount++;
+    if (this.index >= this.list.length) {
+      this.over = true;
+      this.cleared = true;
+    } else {
+      this.board.stage = this.list[this.index].stage;
+      this.board.loadProblem(this.list[this.index].problem);
+    }
+    return { chain: this.index, smart: result.count === this.board.minCount, speed: false, points: 0 };
+  }
+
+  onMiss(result) {
+    this.misses++;
+    this.missesNow++;
+    if (result.mistake) this.mistakes[result.mistake] = (this.mistakes[result.mistake] || 0) + 1;
+    this.board.commitMiss();
+  }
+
+  onReroll() {}
+
+  summary() {
+    return {
+      cleared: this.cleared, solved: this.index, points: this.points, firsts: this.firsts,
+      misses: this.misses, timeMs: this.clock, mistakes: { ...this.mistakes },
+    };
+  }
+}
+
+export function finalGrade(score) {
+  return CONFIG.STORY.FINAL.GRADES.find(([min]) => score >= min)[1];
 }

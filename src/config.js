@@ -3,7 +3,7 @@
 
 export const CONFIG = {
   // タイトル画面の下に出す版番号（13.3 の付け方に従う）
-  VERSION: 'v0.7.0',
+  VERSION: 'v0.8.0',
 
   // ---- ボンベの状態（4.1） ----
   // 圧力 P は 0.1×10⁵ Pa を 1 とする整数、体積 V は 0.5 L を 1 とする整数、温度 T は K の整数
@@ -30,7 +30,7 @@ export const CONFIG = {
 
   // ---- カード（4.2） ----
   VMUL_FACTORS: [[2, 1], [3, 1], [1, 2], [1, 3], [3, 2], [2, 3]], // 体積カードの倍率 [分子, 分母]
-  TEMP_TYPES: ['tset_k', 'tset_c'],   // 温度カード（1回のデュエルに1枚まで）
+  TEMP_TYPES: ['tset_k', 'tset_c', 'tset_f'],   // 温度カード（1回のデュエルに1枚まで）。tset_f は隠し章の℉カード
   MAX_TEMP_CARDS: 1,
   HAND_SIZE: 5,      // 手札の枚数
   FIELD_SIZE: 3,     // 場の枠の数（1回に出せる最大枚数）
@@ -99,17 +99,26 @@ export const CONFIG = {
       decoys: [['add', 3], ['vmul', 2], ['tset_k', 1]],
       trapMin: 2,
     },
+    // v0.8：隠し章の℉カード（教科書の範囲外のおまけ）。練習室では隠し章をクリアすると出てくる
+    10: {
+      minCards: 2,
+      patterns: [[['vmul', 'tset_f'], 3], [['vmul', 'tset_k'], 1]],
+      decoys: [['vmul', 2], ['tset_f', 2], ['tset_c', 1]],
+      trapMin: 2,
+    },
   },
   AVAILABLE_STAGES: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-  MAX_DOJO_STAGE: 6,          // 道場・タイムアタックで上がっていく段階の上限（物質量カードは v0.8 の総まとめで加える）
+  HIDDEN_STAGE: 10,
+  MAX_DOJO_STAGE: 9,          // 道場・タイムアタックで上がっていく段階の上限（v0.8 から物質量カード・混合気体まで）
 
   // ---- 問題の生成（4.4） ----
   MAX_ATTEMPTS: 200,  // この回数作り直してもだめなら「換気」して開始状態から作る
   COMBO_TRIES: 60,    // 正解の組み合わせを1つ作るときの試行回数
 
   // ---- 考え違い（4.5）。上にあるものを優先して推定する ----
-  MISTAKE_MODELS: ['inverse_v', 'celsius', 'inverse_t', 'ignore_t', 'inverse_n', 'partial_total', 'fixed_total'],
+  MISTAKE_MODELS: ['inverse_v', 'celsius', 'inverse_t', 'ignore_t', 'inverse_n', 'partial_total', 'fixed_total', 'fahrenheit'],
   // partial_total：分圧を全圧と取り違える　fixed_total：気体を混ぜても全圧は変わらないと考える（v0.7）
+  // fahrenheit：℉の数を℃だと思って 273 を足す（v0.8、隠し章）
   MISTAKE_HISTORY: 20, // 直近何回のハズレを覚えておくか
 
   // ---- 演出の時間（ミリ秒、5.3） ----
@@ -148,7 +157,7 @@ export const CONFIG = {
     METER_MISS: 15,            // ハズレ
     METER_REROLL: 8,           // 引き直し
     // 自然上昇：+1 になるまでの時間（ミリ秒）。段階が上がるほど速い
-    RISE_MS_BY_STAGE: { 1: 2200, 2: 1800, 3: 1500, 4: 1250, 5: 1000, 6: 850, 7: 1250, 8: 1700, 9: 1300 },
+    RISE_MS_BY_STAGE: { 1: 2200, 2: 1800, 3: 1500, 4: 1250, 5: 1000, 6: 850, 7: 1100, 8: 1100, 9: 900, 10: 1000 },
     LATE_START_MS: 150000,     // 2分半を過ぎたら
     LATE_FACTOR_PER_MIN: 0.7,  // 1分ごとに、上昇の間隔を 0.7 倍にする（決着を促す）
     CHAIN_TIMEOUT_MS: 20000,   // 前のジャストから20秒で連鎖が切れる
@@ -179,7 +188,7 @@ export const CONFIG = {
     EXP_STEP: 50,
     EXAM_JUSTS: 10,            // 昇段試験：10問連続ジャスト（ハズレ1回で不合格）
     // 昇段試験の問題の段階（受ける段位の番号 1〜19 ごと）
-    EXAM_STAGE: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    EXAM_STAGE: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 6, 7, 7, 8, 9, 9, 9], // v0.8：高い段位は物質量・混合気体も
   },
 
   // ---- 経験値 ----
@@ -224,7 +233,7 @@ export const CONFIG = {
     },
     // 問題の段階ごとに、解く時間に掛ける倍率（段階1〜6）
     // 仕様は「1段階ごとに10%長く」だが、人は2枚・3枚の問題で大きく時間がかかるので、それに合わせた
-    STAGE_FACTOR: [1, 1.35, 1.3, 1.75, 2.1, 2.7, 1.9, 1.5, 1.9],
+    STAGE_FACTOR: [1, 1.35, 1.3, 1.75, 2.1, 2.7, 1.9, 1.5, 1.9, 2.3],
   },
 
   // ---- ストーリー（5.5）。v0.5 は1〜4章。5章以降は v0.6〜v0.8 で追加する ----
@@ -237,12 +246,23 @@ export const CONFIG = {
       { id: 4, char: 'celsius', stages: [5], need: 7, level: 'regular', speed: 1.2, trick: 'to_celsius', trickMs: 18000 },
       { id: 5, char: 'avogadro', stages: [7], need: 5, level: 'regular', speed: 1.2, trick: 'leak', trickMs: 24000 },
       { id: 6, char: 'dalton', stages: [8, 9], need: 6, level: 'regular', speed: 1.15, trick: 'mix_in', trickMs: 22000 },
+      // 7章は総復習（理想気体のカードすべて）。相手の技は「Z≠1カード」（実在気体のずれ）
+      { id: 7, char: 'vdw', stages: [6, 7], need: 6, level: 'regular', speed: 1.4, trick: 'real_gas', trickMs: 22000, riseSlow: 2.6 }, // 3枚の問題があるので、危険メーターをゆっくりに
+      // 隠し章：総まとめ試験を受けると開く（教科書の範囲外のおまけ）
+      { id: 8, char: 'fahrenheit', stages: [10], need: 5, level: 'regular', speed: 1.35, trick: 'to_fahrenheit', trickMs: 20000, hidden: true },
     ],
     // これから追加する章（単元全体の地図として、章の一覧に表示する）
-    FUTURE: [
-      { id: 7, char: 'vdw', ver: 'v0.8', pages: '50-53' },
-      { id: 8, char: 'fahrenheit', ver: 'v0.8', pages: '' },
-    ],
+    FUTURE: [],
+    // 総まとめ試験（v0.8）：7章をクリアすると受けられる。デュエル10問 ＋ 確認問題10問 = 100点
+    FINAL: {
+      STAGES: [2, 3, 4, 5, 6, 6, 7, 7, 8, 9], // デュエルの問題の段階（この順に出す）
+      QUIZ: 10,              // 確認問題の数（1〜7章から1問ずつ ＋ 分子量の鑑定 ＋ Z判定 ＋ もう1問）
+      DUEL_FIRST: 5,         // デュエル：1回目でジャスト
+      DUEL_LATER: 3,         // デュエル：ハズレのあとでジャスト
+      QUIZ_FIRST: 5,         // 確認問題：1回目で正解
+      QUIZ_LATER: 2,         // 確認問題：まちがえたあとで正解
+      GRADES: [[90, 'S'], [75, 'A'], [60, 'B'], [0, 'C']],
+    },
     STAGE_EVERY: 3,            // ジャスト3回ごとに、その章の次の段階へ
     RISE_SLOW: 1.6,            // 危険メーターの自然上昇を、道場よりゆっくりにする倍率
     LOSS_EASE: 0.25,           // 負けるたびに、相手の解く時間を25%ずつ長くする（最大4回分）

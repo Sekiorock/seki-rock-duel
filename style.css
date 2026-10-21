@@ -1129,3 +1129,75 @@ html[lang="en"] .title { font-size: 28px; }
 .talk-top .sub-btn { white-space: nowrap; }
 .talk-top .topbar-right { flex: none; }
 .lesson-state { white-space: nowrap; font-size: clamp(11.5px, 3.6vw, 15px); }
+
+/* v0.7 混合気体：分圧の帯（帯の長さ = 全圧、区切り = 分圧） */
+.state-text.with-mix { padding-bottom: 0; font-size: 15px; }
+.state-text.with-mix span { margin: 0 4px; }
+.mixbar { margin: 3px 12px 0; white-space: normal; }
+.mix-track {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--pale);
+  display: flex;
+  overflow: visible;
+}
+.mix-track .seg { display: block; height: 100%; transition: width 240ms ease; }
+.mix-track .seg:first-child { border-radius: 6px 0 0 6px; }
+.mix-track .seg.a { background: var(--navy); }
+.mix-track .seg.b { background: var(--white); box-shadow: inset 0 0 0 2px var(--blue); }
+.mix-track .goal-mark {
+  position: absolute; top: -4px; bottom: -4px; width: 0;
+  border-left: 3px solid var(--blue);
+  transform: translateX(-1.5px);
+}
+.mix-track .goal-mark::before {
+  content: ""; position: absolute; top: -5px; left: -6px;
+  border: 5px solid transparent; border-top: 6px solid var(--blue);
+}
+.mix-legend {
+  display: flex; justify-content: space-between; gap: 6px;
+  font-size: 11.5px; font-weight: 700; margin-top: 2px; line-height: 1.2;
+}
+.mix-legend .lg { display: inline-flex !important; align-items: baseline; gap: 3px; margin: 0 !important; white-space: nowrap; }
+.mix-legend .lg b { font-weight: 900; padding: 0 5px; border-radius: 5px; }
+.mix-legend .lg.a b { background: var(--navy); color: var(--white); }
+.mix-legend .lg.b b { background: var(--white); color: var(--navy); box-shadow: inset 0 0 0 1.5px var(--blue); }
+.mix-legend .lg small { font-size: 10.5px; opacity: 0.75; margin-left: 2px; }
+.mix-legend .lg.is-goal { color: var(--blue); }
+@media (max-width: 360px) {
+  .state-text.with-mix { font-size: 12.5px; }
+  .mix-legend { font-size: 10px; }
+  .mix-legend .lg small { display: none; }
+  .mixbar { margin: 2px 6px 0; }
+}
+
+/* 混ぜるカード：N₂ はネイビーの帯、O₂ は青い輪 */
+.card.mix-card .label .top { font-size: 17px; font-weight: 900; }
+.card.mix-card.gas-a .label .top { color: var(--white); background: var(--navy); border-radius: 6px; padding: 0 6px; }
+.card.mix-card.gas-b .label .top { color: var(--navy); box-shadow: inset 0 0 0 2px var(--blue); border-radius: 6px; padding: 0 6px; }
+.target-value.part { font-size: 22px; white-space: nowrap; }
+html[lang="en"] .target-value.part { font-size: 21px; }
+@media (max-width: 360px) { .target-value.part, html[lang="en"] .target-value.part { font-size: 18px; } }
+
+/* v0.8 */
+.card.frost-card.z-card .label .top { font-size: 19px; font-style: italic; font-family: "Times New Roman", serif; }
+.lesson-graph { display: none; height: clamp(190px, 30vh, 280px); flex: none; }
+.lesson-graph canvas { width: 100%; height: 100%; display: block; }
+.lesson.graph .lesson-graph { display: block; }
+.lesson.graph .lesson-demo, .lesson.graph .lesson-state { display: none; }
+.lesson.graph .lesson-text { font-size: 15px; margin-top: 4px; }
+.chapter.final-ch { border-color: var(--blue); }
+.chapter .final-mark {
+  width: 64px; height: 64px; flex: none; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--navy); color: var(--white);
+  font-size: 22px; font-weight: 900; font-style: italic;
+  box-shadow: inset 0 0 0 4px var(--blue);
+}
+.chapter.hidden-ch { border-style: dashed; }
+/* 長い名前（ファンデルワールス・ファーレンハイト）は、名前の列を広げて小さめの文字に */
+.vs-bar.long-name .vs-row { grid-template-columns: 112px 1fr 24px; }
+.vs-bar.long-name .vs-row span { font-size: 11px; letter-spacing: -0.03em; }
+@media (max-width: 360px) { .vs-bar.long-name .vs-row { grid-template-columns: 92px 1fr 18px; } .vs-bar.long-name .vs-row span { font-size: 9.5px; } }

@@ -1,9 +1,9 @@
 // 1人分の盤面の進行（選ぶ、出す、判定）。ひとりでも対戦でも同じものを使う。
 
-import { CONFIG } from './config.js?v=0.7.0';
-import { eq } from './frac.js?v=0.7.0';
-import { startState, applySequence, isTempCard, measure } from './cards.js?v=0.7.0';
-import { generateProblem, rerollHand, estimateMistake, enumerateSolutions } from './puzzle.js?v=0.7.0';
+import { CONFIG } from './config.js?v=0.8.0';
+import { eq } from './frac.js?v=0.8.0';
+import { startState, applySequence, isTempCard, measure } from './cards.js?v=0.8.0';
+import { generateProblem, rerollHand, estimateMistake, enumerateSolutions } from './puzzle.js?v=0.8.0';
 
 let uidCounter = 1;
 const withUid = (c) => (c && !c.uid ? { ...c, uid: uidCounter++ } : c);
@@ -110,7 +110,11 @@ export class Board {
       count: used.length,
       smart: just && used.length === this.minCount, // v0.3 の得点で使う
       measured: measure(r.state, this.goal),  // 目標の種類ではかった結果
-      mistake: just ? null : estimateMistake(this.state, cards, this.target, this.goal),
+      // ℉カードを含むハズレで、どの考え違いにも当てはまらないときは、℉の読み違いとみなす（隠し章）
+      mistake: just ? null : (() => {
+        const m = estimateMistake(this.state, cards, this.target, this.goal);
+        return m === 'calc' && cards.some((c) => c.type === 'tset_f') ? 'fahrenheit' : m;
+      })(),
     };
   }
 

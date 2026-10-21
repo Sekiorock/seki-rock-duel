@@ -8,8 +8,8 @@
 //   物質量 n … 粒の数（n に比例。v0.6〜）
 //   混合気体 … 窒素 N₂ はネイビーの粒、酸素 O₂ は白地に青の輪の粒（v0.7〜）。温度は粒の速さと温度計で見る
 
-import { CONFIG } from './config.js?v=0.7.0';
-import { drawChar } from './chars.js?v=0.7.0';
+import { CONFIG } from './config.js?v=0.8.0';
+import { drawChar } from './chars.js?v=0.8.0';
 
 const NAVY = '#1B2A49';
 const BLUE = '#2F6FED';
@@ -771,6 +771,15 @@ export class FxLayer {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  // 画面を切り替えたときに、残っている紙吹雪と応援のキャラクターを消す
+  clear() {
+    this.pieces = [];
+    this.sprites = [];
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    if (this.w) this._size();
+  }
+
   // 白い紙吹雪（フィーバー）。n 枚
   confetti(n = 60, colors = [WHITE, WHITE, PALE]) {
     this._size();
@@ -847,5 +856,76 @@ export class FxLayer {
       ctx.clearRect(0, 0, this.w, this.h);
       this.running = false;
     }
+  }
+}
+
+// ---------- 実在気体の Z の模式図（7章の解説。v0.8） ----------
+// kind：'zp'（低温・高温の気体の Z と圧力）、'zgas'（気体の種類と Z）。数値のデータではなく、形のイメージ
+// labels：文言（言語ごと）。k：描く割合（0〜1。左から右へ線がのびる）
+export function drawZGraph(canvas, kind, labels, k = 1) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const r = canvas.getBoundingClientRect();
+  const w = Math.max(1, r.width);
+  const h = Math.max(1, r.height);
+  if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const L = 34, R = w - 12, T = 16, B = h - 26;
+  const Z0 = 0.4, Z1 = 1.7;
+  const X = (x) => L + x * (R - L);
+  const Y = (z) => B - ((z - Z0) / (Z1 - Z0)) * (B - T);
+  // 軸
+  ctx.strokeStyle = NAVY; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(L, T - 6); ctx.lineTo(L, B); ctx.lineTo(R, B); ctx.stroke();
+  ctx.fillStyle = NAVY; ctx.font = '800 13px system-ui, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText('Z', L - 8, T + 2);
+  ctx.fillText('1', L - 6, Y(1));
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+  ctx.fillText(labels.p, R, B + 6);
+  ctx.textAlign = 'left';
+  ctx.font = '600 11px system-ui, sans-serif';
+  ctx.globalAlpha = 0.7;
+  ctx.fillText(labels.note, L + 4, B + 7);
+  ctx.globalAlpha = 1;
+  // 理想気体：Z = 1 の点線
+  ctx.setLineDash([6, 5]); ctx.strokeStyle = NAVY; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(L, Y(1)); ctx.lineTo(R, Y(1)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font = '700 11.5px system-ui, sans-serif'; ctx.textBaseline = 'bottom'; ctx.textAlign = 'left';
+  ctx.fillText(labels.ideal, L + 6, Y(1) - 3); // 左の方は、どの線も Z = 1 より下なので、線の上に書く
+  const curves = kind === 'zgas'
+    ? [
+      { f: (x) => 1 + 0.35 * x, color: BLUE, width: 2.5, label: 'H₂', dash: [] },
+      { f: (x) => 1 - 0.9 * x + 1.2 * x * x, color: mix(NAVY, BLUE, 0.5), width: 2.5, label: 'CH₄', dash: [3, 3] },
+      { f: (x) => 1 - 1.8 * x + 2.0 * x * x, color: NAVY, width: 3, label: 'CO₂', dash: [] },
+    ]
+    : [
+      { f: (x) => 1 - 0.3 * x + 0.6 * x * x, color: BLUE, width: 2.5, label: labels.high, dash: [] },
+      { f: (x) => 1 - 1.6 * x + 2.2 * x * x, color: NAVY, width: 3, label: labels.low, dash: [] },
+    ];
+  const end = Math.max(0.02, Math.min(1, k));
+  for (const c of curves) {
+    ctx.strokeStyle = c.color; ctx.lineWidth = c.width; ctx.setLineDash(c.dash);
+    ctx.beginPath();
+    for (let i = 0; i <= 60; i++) {
+      const x = (i / 60) * end;
+      const px = X(x);
+      const py = Y(c.f(x));
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+    if (k >= 1) {
+      ctx.fillStyle = c.color; ctx.font = '900 13px system-ui, sans-serif';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText(c.label, R - 2, Y(c.f(1)) - 4);
+    }
+  }
+  // 低温の線のくぼみ（分子間力）と、右上（分子の体積）の説明
+  if (kind === 'zp' && k >= 1) {
+    ctx.fillStyle = NAVY; ctx.font = '700 11.5px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(labels.attract, X(0.36), Y(0.71) + 6);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(labels.volume, X(0.5), Y(1.45));
   }
 }
