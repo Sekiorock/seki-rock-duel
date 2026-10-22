@@ -1,21 +1,22 @@
 // ボンベ（ピストン付きシリンダー）、中の気体の粒、温度計、圧力計の描画。Canvas 2D。
-// 立体感は陰影で出す（3D描画は使わない）。色は白・ネイビー・青の濃淡だけ。
+// 立体感は陰影で出す（3D描画は使わない）。色は白・黒が基調、差し色はピンクとシアン（v1.0）。
 //
 // 見え方のきまり（直感的に分かるように）
 //   体積 V … ピストンの高さ（気体の部分の高さは V に比例）
 //   温度 T … 左の温度計の高さと、粒の速さ（√T に比例）と粒の色（熱いほど濃い青）
 //   圧力 P … 壁を押す矢印の長さ、気体の色の濃さ、圧力計の針。粒が壁に当たると光る
 //   物質量 n … 粒の数（n に比例。v0.6〜）
-//   混合気体 … 窒素 N₂ はネイビーの粒、酸素 O₂ は白地に青の輪の粒（v0.7〜）。温度は粒の速さと温度計で見る
+//   混合気体 … 窒素 N₂ は黒の粒、酸素 O₂ はシアンの粒（v0.7〜、v1.0 で配色変更）。温度は粒の速さと温度計で見る
 
-import { CONFIG } from './config.js?v=0.9.0';
-import { drawChar } from './chars.js?v=0.9.0';
+import { CONFIG } from './config.js?v=1.0.0';
+import { drawChar } from './chars.js?v=1.0.0';
 
-const NAVY = '#1B2A49';
-const BLUE = '#2F6FED';
-const PALE = '#DCE7FD';
+const NAVY = '#121212';
+const BLUE = '#FE2C55';
+const PALE = '#D4FAF8';
 const WHITE = '#FFFFFF';
-const SURFACE = '#F4F7FB';
+const SURFACE = '#F5F5F5';
+const CYAN = '#25F4EE';   // 差し色（v1.0）。O₂ の粒など
 
 const V_MAX = Math.max(...CONFIG.VOLUME_UNITS);  // 12 L
 const T_MIN = 100;
@@ -471,7 +472,7 @@ export class BombeView {
       const x = gas.left + r + p.x * (gas.w - r * 2);
       const y = gas.top + r + p.y * Math.max(0, gas.h - r * 2);
       if (p.gas === 'A') { ctx.fillStyle = NAVY; ctx.strokeStyle = NAVY; ctx.lineWidth = 1.2; }
-      else if (p.gas === 'B') { ctx.fillStyle = WHITE; ctx.strokeStyle = BLUE; ctx.lineWidth = 2.2; }
+      else if (p.gas === 'B') { ctx.fillStyle = CYAN; ctx.strokeStyle = NAVY; ctx.lineWidth = 1.4; }
       else { ctx.fillStyle = hot; ctx.strokeStyle = NAVY; ctx.lineWidth = 1.2; }
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -581,7 +582,7 @@ export class BombeView {
     // ピストンの厚み（側面）
     const side = ctx.createLinearGradient(g.cx - bw / 2, 0, g.cx + bw / 2, 0);
     side.addColorStop(0, INK);
-    side.addColorStop(0.35, shadow ? '#6E9BF3' : '#3A4E78');
+    side.addColorStop(0.35, shadow ? '#FF7A96' : '#3A3A3A');
     side.addColorStop(1, INK);
     ctx.fillStyle = side;
     ctx.beginPath();
@@ -781,7 +782,7 @@ export class FxLayer {
   }
 
   // 白い紙吹雪（フィーバー）。n 枚
-  confetti(n = 60, colors = [WHITE, WHITE, PALE]) {
+  confetti(n = 60, colors = [WHITE, CYAN, PALE]) {
     this._size();
     for (let i = 0; i < n; i++) {
       this.pieces.push({
@@ -844,7 +845,7 @@ export class FxLayer {
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rot);
       ctx.fillStyle = p.color;
-      ctx.strokeStyle = 'rgba(27,42,73,0.25)';
+      ctx.strokeStyle = 'rgba(18, 18, 18,0.25)';
       ctx.lineWidth = 1;
       ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
       ctx.strokeRect(-p.w / 2, -p.h / 2, p.w, p.h);

@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#1B2A49">
+  <meta name="theme-color" content="#121212">
   <meta name="format-detection" content="telephone=no">
   <title>セキオロックデュエル</title>
   <!-- ?v= は版番号。版が変わるたびに必ず新しいファイルを読み込ませるための印 -->
-  <link rel="stylesheet" href="style.css?v=0.9.0">
+  <link rel="stylesheet" href="style.css?v=1.0.0">
   <script>
     // 読み込みに失敗したとき（古いファイルが混ざったときなど）に、白い画面のままにしない
     (function () {
@@ -45,9 +45,14 @@
           <b data-t="dojo">道場</b><small data-t="dojoDesc">危険メーターに追われながら解き続ける</small>
           <em id="dojo-best" class="menu-best"></em>
         </button>
-        <button id="btn-battle" class="menu-btn battle" type="button">
-          <b data-t="battle">ひとり対戦</b><small id="battle-sub" data-t="battleDesc">CPU 11体・39体とバトル</small>
-        </button>
+        <div class="menu-grid battle-row">
+          <button id="btn-battle" class="menu-btn small battle" type="button">
+            <b data-t="battle">ひとり対戦</b><small id="battle-sub" data-t="battleDesc">CPU 11体・39体とバトル</small>
+          </button>
+          <button id="btn-live" class="menu-btn small battle" type="button">
+            <b data-t="live">みんなで対戦</b><small id="live-sub" data-t="liveDesc">部屋をつくって友だちと</small>
+          </button>
+        </div>
         <div class="menu-grid">
           <button id="btn-story" class="menu-btn small story" type="button">
             <b data-t="story">ストーリー</b><small id="story-sub" data-t="storyDesc">気体の精たちと対決</small>
@@ -75,7 +80,7 @@
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.5 5.5h2v2h-2zM16.5 5.5h2v2h-2zM5.5 16.5h2v2h-2zM14 14h3v3h-3zM18 18h3v3h-3zM18 14h3v2h-3zM14 18h2v3h-2z" fill="currentColor"/></svg>
       <span data-t="qrBtn">友だちにすすめる</span>
     </button>
-    <p id="version" class="version">v0.9.0</p>
+    <p id="version" class="version">v1.0.0</p>
   </section>
 
   <!-- ストーリー：章の一覧（単元全体の地図） -->
@@ -99,6 +104,7 @@
       <span id="talk-chapter" class="talk-chapter"></span>
       <div class="topbar-right">
         <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn calc-btn" type="button" data-calc-toggle aria-label="電卓"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="8" y="5.5" width="8" height="3.5" rx="0.8" fill="currentColor"/><path d="M8.5 13h1M11.5 13h1M14.5 13h1M8.5 16.5h1M11.5 16.5h1M14.5 16.5h1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
         <button id="btn-skip" class="sub-btn" type="button" data-t="skip">スキップ</button>
       </div>
     </div>
@@ -127,6 +133,7 @@
       <div class="topbar-right">
         <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
         <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+        <button class="icon-btn calc-btn" type="button" data-calc-toggle aria-label="電卓"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="8" y="5.5" width="8" height="3.5" rx="0.8" fill="currentColor"/><path d="M8.5 13h1M11.5 13h1M14.5 13h1M8.5 16.5h1M11.5 16.5h1M14.5 16.5h1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
       </div>
     </header>
     <div class="quiz-wrap">
@@ -235,6 +242,55 @@
     <button id="btn-battle-start" class="duel-btn battle-start" type="button" data-t="battleStart">バトル開始！</button>
   </section>
 
+  <!-- みんなで対戦：部屋をつくる・入る（v1.0） -->
+  <section id="screen-live" class="screen scroll" hidden>
+    <header class="topbar">
+      <button id="btn-live-back" class="sub-btn" type="button" data-t="back">もどる</button>
+      <h2 class="screen-title" data-t="live">みんなで対戦</h2>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+      </div>
+    </header>
+    <p id="live-status" class="live-status"></p>
+    <div id="live-form" class="live-form">
+      <p class="section-label" data-t="liveName">ニックネーム（8文字まで）</p>
+      <input id="live-name" class="live-input" type="text" maxlength="8" autocomplete="off" enterkeyhint="done">
+      <p class="live-note" data-t="liveNameNote">本名は使わないでね</p>
+      <p class="section-label" data-t="liveChar">キャラクター</p>
+      <div id="live-chars" class="live-chars"></div>
+      <button id="btn-room-create" class="duel-btn live-create" type="button" data-t="liveCreate">部屋をつくる</button>
+      <p class="section-label" data-t="liveJoinLabel">部屋に入る（4桁の番号）</p>
+      <div class="live-join">
+        <input id="live-code" class="live-input code num" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="1234">
+        <button id="btn-room-join" class="sub-btn" type="button" data-t="liveJoin">入る</button>
+      </div>
+      <a id="live-test-link" class="live-test-link" href="test.html" data-t="liveTestLink">接続テストのページ</a>
+    </div>
+  </section>
+
+  <!-- 待合室（v1.0） -->
+  <section id="screen-room" class="screen scroll" hidden>
+    <header class="topbar">
+      <button id="btn-room-leave" class="sub-btn" type="button" data-t="back">もどる</button>
+      <h2 class="screen-title" data-t="liveRoom">待合室</h2>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+      </div>
+    </header>
+    <div class="room-head">
+      <div class="room-code-box"><span data-t="liveRoomNo">部屋番号</span><b id="room-code" class="num">----</b></div>
+      <div id="room-qr" class="room-qr" aria-hidden="true"></div>
+    </div>
+    <p id="room-url" class="qr-url num"></p>
+    <p id="room-count" class="section-label"></p>
+    <div id="room-players" class="room-players"></div>
+    <p id="room-msg" class="room-msg"></p>
+    <button id="btn-room-start" class="duel-btn room-start" type="button" data-t="liveStart">スタート</button>
+    <div id="room-countdown" class="room-countdown" hidden></div>
+  </section>
+
   <!-- プレイ画面（練習室と道場で共通） -->
   <section id="screen-play" class="screen" hidden>
     <div id="fever-bar" class="fever-bar"><i></i></div>
@@ -254,6 +310,7 @@
       <div class="topbar-right">
         <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
         <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+        <button class="icon-btn calc-btn" type="button" data-calc-toggle aria-label="電卓"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="8" y="5.5" width="8" height="3.5" rx="0.8" fill="currentColor"/><path d="M8.5 13h1M11.5 13h1M14.5 13h1M8.5 16.5h1M11.5 16.5h1M14.5 16.5h1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
         <button id="btn-home" class="icon-btn" type="button" aria-label="ホームへ">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>
         </button>
@@ -350,6 +407,9 @@
     </div>
   </div>
 
+  <!-- 電卓の小窓（v1.0）。プレイ画面・確認問題・解説の右上のボタンで開く -->
+  <div id="calc" class="calc" hidden></div>
+
   <!-- 友だちにすすめる：このゲームのQRコード（v0.9） -->
   <div id="qr-overlay" class="overlay" hidden>
     <div class="panel qr-panel">
@@ -358,7 +418,7 @@
         <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
       </div>
       <p class="qr-note" data-t="qrNote">スマホのカメラで読み取ると、このゲームが開きます</p>
-      <img id="qr-img" class="qr-img" src="assets/qr.svg?v=0.9.0" alt="QR code" width="240" height="240">
+      <img id="qr-img" class="qr-img" src="assets/qr.svg?v=1.0.0" alt="QR code" width="240" height="240">
       <p id="qr-url" class="qr-url num"></p>
       <button id="btn-qr-copy" class="sub-btn" type="button" data-t="qrCopy">URLをコピー</button>
       <button id="btn-qr-close" class="duel-btn" type="button" data-t="close">閉じる</button>
@@ -390,6 +450,6 @@
   </div>
 
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
-  <script type="module" src="src/main.js?v=0.9.0"></script>
+  <script type="module" src="src/main.js?v=1.0.0"></script>
 </body>
 </html>

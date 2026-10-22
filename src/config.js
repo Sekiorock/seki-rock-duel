@@ -3,7 +3,7 @@
 
 export const CONFIG = {
   // タイトル画面の下に出す版番号（13.3 の付け方に従う）
-  VERSION: 'v0.9.0',
+  VERSION: 'v1.0.0',
 
   // 「友だちにすすめる」の QR コードが指す URL（QR の画像 assets/qr.svg と同じ）
   SHARE_URL: 'https://sekiorock.github.io/seki-rock-duel/',
@@ -309,6 +309,8 @@ export const CONFIG = {
     METER_REROLL: 8,
     SPEED_MS: 10000,
     CHAIN_TIMEOUT_MS: 20000,
+    BOT_SLOW: 1.6,                // ひとり対戦の CPU は、解く時間をこの倍に（v1.0：弱くしてほしいとの依頼）
+    BOT_ACCURACY: 0.9,            // ひとり対戦の CPU のジャストの確率に掛ける
     BOT_SMART_RATE: { novice: 0.4, regular: 0.6, master: 0.8 }, // CPU のジャストがスマートになる割合
     BOT_SPEED_RATE: { novice: 0.05, regular: 0.3, master: 0.7 }, // スピード（10秒以内）になる割合
     BOT_COUNTER_RATE: 0.5,        // 一人前が「反撃」を選ぶ割合

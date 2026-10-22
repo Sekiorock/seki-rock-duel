@@ -1,0 +1,76 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      ".read": "auth != null",
+      "$room": {
+        ".write": "auth != null && ((!data.exists() && newData.child('host').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('createdAt').val() < now - 10800000 || data.child('host').val() === auth.uid || !data.child('players').exists())))",
+        ".validate": "$room.matches(/^[0-9]{4}$/) && newData.hasChildren(['host', 'state', 'createdAt'])",
+        "host": {
+          ".write": "auth != null && root.child('rooms/' + $room + '/players/' + auth.uid).exists() && newData.val() === auth.uid && (!data.exists() || data.val() === auth.uid || !root.child('rooms/' + $room + '/players/' + data.val()).exists() || root.child('rooms/' + $room + '/players/' + data.val() + '/left').val() === true)",
+          ".validate": "newData.isString()"
+        },
+        "state": {
+          ".write": "auth != null && root.child('rooms/' + $room + '/host').val() === auth.uid",
+          ".validate": "newData.isString() && newData.val().matches(/^(lobby|countdown|playing|result)$/)"
+        },
+        "startAt": {
+          ".write": "auth != null && root.child('rooms/' + $room + '/host').val() === auth.uid",
+          ".validate": "newData.isNumber()"
+        },
+        "seed": {
+          ".write": "auth != null && root.child('rooms/' + $room + '/host').val() === auth.uid",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "createdAt": { ".validate": "newData.isNumber() && newData.val() <= now" },
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 8" },
+            "char": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "joinedAt": { ".validate": "newData.isNumber() && newData.val() <= now" },
+            "meter": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+            "chain": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999" },
+            "alive": { ".validate": "newData.isBoolean()" },
+            "left": { ".validate": "newData.isBoolean()" },
+            "valves": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 99" },
+            "targeting": { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "burstAt": { ".validate": "newData.isNumber() && newData.val() <= now" },
+            "burstBy": { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "stats": {
+              "justs": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+              "maxChain": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+              "coolSent": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+              "$other": { ".validate": false }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+        "events": {
+          ".write": "auth != null && root.child('rooms/' + $room + '/host').val() === auth.uid && !newData.exists()",
+          "$eid": {
+            ".write": "auth != null && !data.exists() && root.child('rooms/' + $room + '/players/' + auth.uid).exists()",
+            ".validate": "newData.hasChildren(['type', 'from', 't']) && newData.child('from').val() === auth.uid",
+            "type": { ".validate": "newData.isString() && newData.val().matches(/^(heat|cool|burst)$/)" },
+            "from": { ".validate": "newData.isString()" },
+            "to": { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "amount": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 20" },
+            "t": { ".validate": "newData.isNumber() && newData.val() <= now" },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
+    "tests": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "token": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "t": { ".validate": "newData.isNumber() && newData.val() <= now" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}

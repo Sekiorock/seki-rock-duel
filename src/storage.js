@@ -92,6 +92,7 @@ const DEFAULT_RECORDS = {
   daily: {},            // { YYYYMMDD: { cards, timeMs, misses } }
   finalBest: 0,         // 総まとめ試験の最高点（v0.8）
   battlePlays: 0, battleWins: 0, battleBestRank: 0, // ひとり対戦（v0.9）。最高順位は 0 = まだ
+  livePlays: 0, liveWins: 0,                        // みんなで対戦（v1.0）
   totals: { ...DEFAULT_TOTALS },
 };
 

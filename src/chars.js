@@ -2,11 +2,11 @@
 // v0.4：カードパックの絵柄（気体・器具・グラフのモチーフ）。
 // v0.5：キャラクター（7人の気体の精）と5つの表情。パックの絵柄にもキャラクターを加える。
 
-const NAVY = '#1B2A49';
-const BLUE = '#2F6FED';
-const PALE = '#DCE7FD';
+const NAVY = '#121212';
+const BLUE = '#FE2C55';
+const PALE = '#D4FAF8';
 const WHITE = '#FFFFFF';
-const MID = '#7FA3F2';
+const MID = '#7FF3EF';
 
 // ---- 絵柄の一覧 ----
 // rarity：normal（ノーマル）/ rare（レア）/ kimo（キモレア）
@@ -110,8 +110,8 @@ export function drawArt(ctx, id, w, h) {
 
   // 背景
   const bg = ctx.createLinearGradient(0, 0, 0, h);
-  if (art && art.rarity === 'kimo') { bg.addColorStop(0, NAVY); bg.addColorStop(1, '#2A3F6E'); }
-  else if (art && art.rarity === 'rare') { bg.addColorStop(0, PALE); bg.addColorStop(1, '#BFD2FB'); }
+  if (art && art.rarity === 'kimo') { bg.addColorStop(0, NAVY); bg.addColorStop(1, '#2A2A2A'); }
+  else if (art && art.rarity === 'rare') { bg.addColorStop(0, PALE); bg.addColorStop(1, '#A8F5F1'); }
   else { bg.addColorStop(0, WHITE); bg.addColorStop(1, PALE); }
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
@@ -122,7 +122,7 @@ export function drawArt(ctx, id, w, h) {
 
   if (art && art.char) {
     // キャラクターの絵柄：集中線の上にキャラクター
-    ctx.strokeStyle = art.rarity === 'kimo' ? '#2F4A80' : 'rgba(47,111,237,0.18)';
+    ctx.strokeStyle = art.rarity === 'kimo' ? '#3A3A3A' : 'rgba(254, 44, 85,0.18)';
     ctx.lineWidth = 2 * u;
     for (let k = 0; k < 24; k++) {
       const a = (Math.PI * 2 * k) / 24;

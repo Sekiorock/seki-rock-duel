@@ -1,13 +1,15 @@
 // CPUプレイヤーの動き（5.6）。v0.5：ストーリーの相手。v0.9（CPU対戦）でも同じものを使う。
 // CPU は問題を実際には解かず、「解く時間」と「ジャストの確率」でジャスト・ハズレを起こす。
 
-import { CONFIG } from './config.js?v=0.9.0';
+import { CONFIG } from './config.js?v=1.0.0';
 
 export class Bot {
   // level：'novice'（見習い）/ 'regular'（一人前）/ 'master'（達人）
   // speed：解く時間に掛ける倍率（小さいほど速い）
-  constructor({ level = 'regular', speed = 1, rng }) {
+  // accuracyMul：ジャストの確率に掛ける（ひとり対戦で CPU を弱くするのに使う）
+  constructor({ level = 'regular', speed = 1, rng, accuracyMul = 1 }) {
     this.cfg = CONFIG.BOT.LEVELS[level];
+    this.accuracy = this.cfg.ACCURACY * accuracyMul;
     this.speed = speed;
     this.rng = rng;
     this.justs = 0;
@@ -31,7 +33,7 @@ export class Bot {
     this.left -= dt;
     if (this.left > 0) return null;
     this._next();
-    if (this.rng.next() < this.cfg.ACCURACY) {
+    if (this.rng.next() < this.accuracy) {
       this.justs++;
       return 'just';
     }
