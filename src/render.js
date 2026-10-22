@@ -8,8 +8,8 @@
 //   物質量 n … 粒の数（n に比例。v0.6〜）
 //   混合気体 … 窒素 N₂ はネイビーの粒、酸素 O₂ は白地に青の輪の粒（v0.7〜）。温度は粒の速さと温度計で見る
 
-import { CONFIG } from './config.js?v=0.8.0';
-import { drawChar } from './chars.js?v=0.8.0';
+import { CONFIG } from './config.js?v=0.9.0';
+import { drawChar } from './chars.js?v=0.9.0';
 
 const NAVY = '#1B2A49';
 const BLUE = '#2F6FED';

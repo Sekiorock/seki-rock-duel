@@ -1,7 +1,7 @@
 // CPUプレイヤーの動き（5.6）。v0.5：ストーリーの相手。v0.9（CPU対戦）でも同じものを使う。
 // CPU は問題を実際には解かず、「解く時間」と「ジャストの確率」でジャスト・ハズレを起こす。
 
-import { CONFIG } from './config.js?v=0.8.0';
+import { CONFIG } from './config.js?v=0.9.0';
 
 export class Bot {
   // level：'novice'（見習い）/ 'regular'（一人前）/ 'master'（達人）

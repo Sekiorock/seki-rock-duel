@@ -1,27 +1,28 @@
 // 全体の進行（画面の切り替え）と、盤面の表示・タッチ操作。
 // 練習室・道場・タイムアタック・今日の5問・昇段試験は、同じプレイ画面を使う（run.kind で切り替える）。
 
-import { CONFIG } from './config.js?v=0.8.0';
-import { TEXT, formatP, formatV, formatT, formatMol, setLang, getLang, LANGS } from './text.js?v=0.8.0';
-import { toNumber } from './frac.js?v=0.8.0';
-import { createRng, randomSeed } from './rng.js?v=0.8.0';
-import { cardLines, isTempCard, isMix, measure } from './cards.js?v=0.8.0';
-import { trapModelsInHand } from './puzzle.js?v=0.8.0';
+import { CONFIG } from './config.js?v=0.9.0';
+import { TEXT, formatP, formatV, formatT, formatMol, setLang, getLang, LANGS } from './text.js?v=0.9.0';
+import { toNumber } from './frac.js?v=0.9.0';
+import { createRng, randomSeed } from './rng.js?v=0.9.0';
+import { cardLines, isTempCard, isMix, measure } from './cards.js?v=0.9.0';
+import { trapModelsInHand } from './puzzle.js?v=0.9.0';
 import {
   Dojo, PracticeRun, TimeAttack, DailyRun, ExamRun, StoryDuel, FinalRun, finalGrade, chapterOf, dateKey, makeKantei, makeZQuiz,
   rankProgress, examAvailable, dojoExp, taExp, dailyExp, rollPack, earnedTitles, TITLES,
   addMastery, masteryStars, MASTERY_CARDS,
-} from './solo.js?v=0.8.0';
-import { BombeView, FxLayer, drawZGraph } from './render.js?v=0.8.0';
-import { AudioEngine } from './audio.js?v=0.8.0';
-import { Music } from './music.js?v=0.8.0';
-import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=0.8.0';
-import { STORY_TEXT } from './story_text.js?v=0.8.0';
+} from './solo.js?v=0.9.0';
+import { BattleRun } from './battle.js?v=0.9.0';
+import { BombeView, FxLayer, drawZGraph } from './render.js?v=0.9.0';
+import { AudioEngine } from './audio.js?v=0.9.0';
+import { Music } from './music.js?v=0.9.0';
+import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=0.9.0';
+import { STORY_TEXT } from './story_text.js?v=0.9.0';
 import {
   migrate, loadSettings, saveSettings, recordMistake, favoriteMistake,
   loadRecords, saveRecords, loadProfile, saveProfile, loadCollection, saveCollection,
   loadTitles, saveTitles, loadMastery, saveMastery, loadStory, saveStory,
-} from './storage.js?v=0.8.0';
+} from './storage.js?v=0.9.0';
 
 const $ = (id) => document.getElementById(id);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -127,6 +128,8 @@ function toggleLang() {
   }
   if (!$('screen-result').hidden && lastResult) renderResult(lastResult);
   if (!$('screen-records').hidden) renderRecords();
+  if (!$('screen-battle').hidden) renderBattleSetup();
+  if (run && run.kind === 'battle' && !$('screen-play').hidden) { buildBattleUI(true); renderBattleLive(); }
   if (!$('screen-collection').hidden) renderCollection();
   if (!$('screen-story').hidden) renderStoryMap();
   if (!$('screen-select').hidden) renderSelect();
@@ -236,8 +239,14 @@ function renderTitleScreen() {
   $('daily-sub').textContent = !dailyOpen ? TEXT.locked
     : today ? TEXT.dailyRecord(today.cards, TEXT.timeFmt(today.timeMs)) : TEXT.dailyDesc;
   const st = loadStory();
-  const cleared = CONFIG.STORY.CHAPTERS.filter((c) => st.cleared[c.id]).length;
-  $('story-sub').textContent = cleared ? `${TEXT.chapterCleared} ${cleared}/${CONFIG.STORY.CHAPTERS.length}` : TEXT.storyDesc;
+  // 本編の章の数（隠し章は数えない）
+  const mainChs = CONFIG.STORY.CHAPTERS.filter((c) => !c.hidden);
+  const cleared = mainChs.filter((c) => st.cleared[c.id]).length;
+  $('story-sub').textContent = cleared ? `${TEXT.chapterCleared} ${cleared}/${mainChs.length}` : TEXT.storyDesc;
+  const bOpen = battleUnlocked();
+  $('btn-battle').classList.toggle('locked', !bOpen);
+  $('battle-sub').textContent = !bOpen ? TEXT.battleLocked
+    : r.battlePlays ? TEXT.battleBest(r.battleWins, r.battleBestRank) : TEXT.battleDesc;
   $('pack-badge').hidden = !(col.pending > 0);
   $('pack-badge').textContent = String(col.pending);
   $('collection-sub').textContent = col.pending > 0 ? TEXT.packsWaiting(col.pending) : TEXT.collectionDesc;
@@ -269,6 +278,24 @@ pressable($('btn-records'), () => { renderRecords(); show('screen-records'); });
 pressable($('rank-chip'), () => { renderRecords(); show('screen-records'); });
 pressable($('btn-exam-ready'), () => { renderRecords(); show('screen-records'); });
 document.querySelectorAll('[data-go-home]').forEach((b) => b.addEventListener('click', () => show('screen-title')));
+
+// ---------- 友だちにすすめる：QRコード（v0.9） ----------
+// QR の画像（assets/qr.svg）は公開先の URL（CONFIG.SHARE_URL）を表している
+pressable($('btn-qr'), () => {
+  $('qr-url').textContent = CONFIG.SHARE_URL;
+  $('qr-overlay').hidden = false;
+  audio.click();
+});
+$('btn-qr-close').addEventListener('click', () => { $('qr-overlay').hidden = true; });
+$('qr-overlay').addEventListener('click', (e) => { if (e.target === $('qr-overlay')) $('qr-overlay').hidden = true; });
+$('btn-qr-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(CONFIG.SHARE_URL);
+    toast(TEXT.qrCopied);
+  } catch (e) {
+    toast(TEXT.qrCopyFail); // コピーできない端末では、URLを長押しで選んでもらう
+  }
+});
 
 // ---------- 練習室：段階の選択 ----------
 function renderAssist() {
@@ -314,7 +341,7 @@ function setOppExpr(expr, ms = 1400) {
 }
 
 const prefer = () => favoriteMistake(CONFIG.MISTAKE_MODELS);
-const SONG_OF = { practice: 'practice', dojo: 'dojo', ta: 'battle', daily: 'practice', exam: 'battle', story: 'battle', final: 'battle' };
+const SONG_OF = { practice: 'practice', dojo: 'dojo', ta: 'battle', daily: 'practice', exam: 'battle', story: 'battle', final: 'battle', battle: 'battle' };
 
 function startRun(kind, opts = {}) {
   const rng = createRng(randomSeed());
@@ -323,11 +350,16 @@ function startRun(kind, opts = {}) {
   else if (kind === 'daily') run = new DailyRun({ key: dateKey() });
   else if (kind === 'exam') run = new ExamRun({ rank: loadProfile().rank, rng });
   else if (kind === 'final') run = new FinalRun({ rng });
+  else if (kind === 'battle') {
+    const o = battleOpt();
+    run = new BattleRun({ opponents: o.opp, level: o.level, cards: o.cards, rng, me: { char: loadProfile().char } });
+  }
   else if (kind === 'story') run = new StoryDuel({ chapter: opts.chapter, rng, losses: loadStory().losses[opts.chapter] || 0 });
   else run = new PracticeRun({ stage: opts.stage || 1, rng, preferModel: prefer });
   board = run.board;
   enterPlay();
   playSong(SONG_OF[kind]);
+  if (kind === 'battle') return battleCountdown();
   startLoop();
 }
 
@@ -361,7 +393,10 @@ function enterPlay() {
   view.set(num(board.state), gaugeTarget());
   targetWall = performance.now();
   showMessage(run.kind === 'exam' ? TEXT.examRule(TEXT.ranks[run.targetRank], run.stage, CONFIG.RANK.EXAM_JUSTS)
-    : run.kind === 'story' ? TEXT.duelRule(run.need) : run.kind === 'final' ? TEXT.finalRule : TEXT.handHint, 'soft');
+    : run.kind === 'story' ? TEXT.duelRule(run.need) : run.kind === 'final' ? TEXT.finalRule
+      : run.kind === 'battle' ? TEXT.battleRule : TEXT.handHint, 'soft');
+  scr.classList.remove('cooling');
+  if (run.kind === 'battle') buildBattleUI();
   // ストーリー：相手の顔と進み具合
   $('vs-bar').hidden = run.kind !== 'story';
   if (run.kind === 'story') {
@@ -415,6 +450,7 @@ function tick() {
     return;
   }
   const events = run.tick(dt);
+  if (run.kind === 'battle') { onBattleEvents(run.drain()); renderBattleLive(); }
   if (events.includes('chain_lost') && run.kind === 'dojo') {
     audio.chainLost();
     showMessage(TEXT.chainLost, 'show', CONFIG.ANIM.NOTICE_MS);
@@ -510,6 +546,19 @@ function updateHud() {
     $('vs-me').style.width = `${(run.justs / run.need) * 100}%`;
     $('vs-opp-n').textContent = String(run.bot.justs);
     $('vs-me-n').textContent = String(run.justs);
+  } else if (k === 'battle') {
+    const me = run.me;
+    $('hud-a-label').textContent = TEXT.aliveLabel;
+    $('hud-a').textContent = `${run.aliveCount}/${run.total}`;
+    $('hud-b-label').textContent = TEXT.valveLabel;
+    $('hud-b').textContent = String(me.valves);
+    const m = me.alive ? me.meter : 0;
+    $('danger-fill').style.height = `${m}%`;
+    $('danger-num').textContent = String(Math.round(m));
+    $('danger').classList.toggle('warn', m >= CONFIG.DOJO.WARN_AT);
+    setDangerLook(m);
+    view.setDanger(m);
+    music.setHeartbeat(me.alive && m >= CONFIG.DOJO.WARN_AT);
   } else if (k === 'final') {
     $('hud-a-label').textContent = TEXT.finalHud;
     $('hud-a').textContent = `${Math.min(run.index + 1, run.total)}/${run.total}`;
@@ -579,6 +628,7 @@ function renderTargetLabel() {
   if (k === 'dojo' || k === 'ta' || k === 'daily') t = TEXT.targetStage(board.stage);
   else if (k === 'exam') t = TEXT.examTitleHud(TEXT.ranks[run.targetRank]);
   else if (k === 'story') t = `${chName(run.ch.id)} · ${TEXT.targetStage(board.stage)}`;
+  else if (k === 'battle') t = `${TEXT.battle} · ${TEXT.targetStage(board.stage)}`;
   else if (k === 'final') t = TEXT.finalStage(board.stage, Math.min(run.index + 1, run.total), run.total);
   else if (settings.assist) t = `${TEXT.targetLabel} · ${TEXT.assistOn}`;
   $('target-label').textContent = t;
@@ -979,6 +1029,7 @@ async function onJustShown(result, pressAt, snap) {
   if (info.smart && kind !== 'daily' && kind !== 'final') setTimeout(() => stamp(TEXT.smart, 's2'), A.STAMP_STACK_MS);
   if (info.speed) setTimeout(() => stamp(TEXT.speed, info.smart ? 's3' : 's2'), A.STAMP_STACK_MS * 2);
 
+  if (kind === 'battle') afterBattleJust(info);
   if (kind === 'dojo') {
     if (info.points) {
       const sp = $('score-pop');
@@ -1008,7 +1059,7 @@ async function onJustShown(result, pressAt, snap) {
     if (info.fever && !info.feverStarted && !info.superStarted) fx.confetti(12);
     music.setState({ chain: info.chain, fever: info.fever, superFever: info.superFever });
   } else {
-    if (info.chain >= 2 && kind !== 'daily' && kind !== 'exam' && kind !== 'final') showBanner(TEXT.chainPop(info.chain));
+    if (info.chain >= 2 && kind !== 'daily' && kind !== 'exam' && kind !== 'final' && kind !== 'battle') showBanner(TEXT.chainPop(info.chain));
     music.setState({ chain: info.chain });
     if (kind === 'practice') replay($('just-count'), 'bump');
     if (kind === 'ta') replay($('hud-b'), 'bump');
@@ -1135,6 +1186,19 @@ function finishRun(natural) {
       res.examPassed = true;
     }
   }
+  // ひとり対戦：順位・優勝・経験値・パック（試合後に1つ）
+  if (kind === 'battle') {
+    const B = CONFIG.BATTLE;
+    if (natural) {
+      rec.battlePlays += 1;
+      if (sum.won) rec.battleWins += 1;
+      rec.battleBestRank = rec.battleBestRank ? Math.min(rec.battleBestRank, sum.rank) : sum.rank;
+      rec.totals.coolGasMaxInMatch = Math.max(rec.totals.coolGasMaxInMatch || 0, sum.coolSent);
+      res.exp = sum.justs * B.EXP_PER_JUST + (sum.total - sum.rank) * B.EXP_PER_RANK + (sum.won ? B.EXP_WIN : 0);
+      col.pending += 1;
+      res.packEarned = true;
+    } else res.battleQuit = true;
+  }
   // 総まとめ試験：デュエル10問が終わったら、確認問題10問へ。点数はそのあとでまとめる
   if (kind === 'final') {
     saveRecords(rec);
@@ -1218,7 +1282,8 @@ function showResultScreen(res) {
     requestAnimationFrame(step);
   }
   if (kind === 'final' && !res.finalQuit) res.bigValue = res.score;
-  const finalGood = kind === 'final' && !res.finalQuit && (res.grade === 'S' || res.grade === 'A');
+  const finalGood = (kind === 'final' && !res.finalQuit && (res.grade === 'S' || res.grade === 'A'))
+    || (kind === 'battle' && !res.battleQuit && sum.rank <= 3);
   const celebrate = res.newBest || res.examPassed || (kind === 'daily' && sum.cleared) || (kind === 'story' && sum.won) || finalGood;
   if (celebrate && audio.ready) setTimeout(() => audio.fanfare(), 600);
   if (res.examPassed || (kind === 'story' && sum.won) || finalGood) {
@@ -1283,6 +1348,14 @@ function renderResult(res) {
     if (sum.won) bestLine = q ? TEXT.quizFirstTry(q.first, q.total) : '';
     else bestLine = `「${ct.lose.text}」 ${sum.burst ? TEXT.storyBurst : TEXT.storyLoseNote}`;
     stats = [[TEXT.resTime, TEXT.timeFmt(sum.timeMs)], [TEXT.resMaxChain, sum.maxChain], [TEXT.resMisses, sum.misses]];
+  } else if (kind === 'battle') {
+    title = res.battleQuit ? TEXT.battleQuit : sum.won ? TEXT.battleWin : TEXT.battleResult;
+    label = TEXT.battleRankLabel(sum.total);
+    big = TEXT.battleRankBig(sum.rank);
+    const rate = sum.justs + sum.misses ? Math.round((sum.justs / (sum.justs + sum.misses)) * 100) : 0;
+    bestLine = `${TEXT.levels[sum.level]} · ${TEXT.battleOppN(sum.opponents)}`;
+    stats = [[TEXT.resJustRate, `${rate}%`], [TEXT.resMaxChain, sum.maxChain], [TEXT.resValves, sum.valves],
+      [TEXT.resCool, sum.coolSent], [TEXT.resJusts, sum.justs], [TEXT.resTime, TEXT.timeFmt(sum.timeMs)]];
   } else if (kind === 'final') {
     title = res.finalQuit ? TEXT.finalQuit : TEXT.finalResult;
     label = TEXT.finalScoreLabel;
@@ -1292,6 +1365,18 @@ function renderResult(res) {
     bestLine = res.finalQuit ? '' : `${TEXT.finalGradeLine(res.grade)}　${res.hiddenOpened ? TEXT.finalHiddenOpen : res.newBest ? TEXT.newBest : st.final ? TEXT.finalBestLine(st.final.best) : ''}`;
     stats = res.finalQuit ? [[TEXT.resTime, TEXT.timeFmt(sum.timeMs)]]
       : [[TEXT.finalDuel, `${res.duelPts}/50`], [TEXT.finalQuiz, `${res.quizPts}/50`], [TEXT.resTime, TEXT.timeFmt(sum.timeMs)]];
+  }
+  // ひとり対戦：全員に見せる記録（優勝者・最長連鎖・最多バルブ・冷却MVP）
+  const rb = $('result-battle');
+  rb.hidden = !(kind === 'battle' && !res.battleQuit);
+  if (!rb.hidden) {
+    const nm = (id) => esc(pnameOf(sum.players[id]));
+    const row = (k, id, v) => `<div><span>${k}</span><b>${id === null || id === undefined ? '—' : nm(id)}</b>${v !== undefined ? `<em>${v}</em>` : ''}</div>`;
+    rb.innerHTML = `<p class="section-label">${TEXT.battleAll}</p>`
+      + row(TEXT.battleWinner, sum.winner)
+      + row(TEXT.battleLongest, sum.chainTop.n ? sum.chainTop.id : null, sum.chainTop.n || '')
+      + row(TEXT.battleMostValves, sum.valveTop.n ? sum.valveTop.id : null, sum.valveTop.n || '')
+      + row(TEXT.battleCoolMvp, sum.coolTop.n ? sum.coolTop.id : null, sum.coolTop.n || '');
   }
   $('result-title').textContent = title;
   document.querySelector('#screen-result .result-label').textContent = label;
@@ -1304,7 +1389,7 @@ function renderResult(res) {
   $('result-stats').style.gridTemplateColumns = stats.length < 3 ? `repeat(${stats.length}, 1fr)` : '';
 
   // 経験値と段位
-  const showExp = kind !== 'exam' && kind !== 'story' && kind !== 'final';
+  const showExp = kind !== 'exam' && kind !== 'story' && kind !== 'final' && !res.battleQuit;
   $('result-exp').hidden = !showExp;
   if (showExp) {
     $('result-exp-gain').textContent = TEXT.expGain(res.exp);
@@ -1332,13 +1417,13 @@ function renderResult(res) {
   // ボタン
   const col = loadCollection();
   const packBtn = $('btn-open-pack');
-  packBtn.hidden = !(col.pending > 0 && (kind === 'dojo' || kind === 'story' || kind === 'final'));
+  packBtn.hidden = !(col.pending > 0 && (kind === 'dojo' || kind === 'story' || kind === 'final' || kind === 'battle'));
   packBtn.textContent = col.pending > 1 ? `${TEXT.openPack}（${col.pending}）` : TEXT.openPack;
   const retry = $('btn-retry');
   retry.hidden = kind === 'exam' && sum.passed;
   retry.textContent = kind === 'exam' ? TEXT.examRetry
     : kind === 'story' ? (sum.won ? TEXT.toStory : TEXT.storyRetry)
-      : kind === 'final' ? TEXT.finalRetry : TEXT.retry;
+      : kind === 'final' ? TEXT.finalRetry : kind === 'battle' ? TEXT.battleAgain : TEXT.retry;
   retry.className = packBtn.hidden ? 'duel-btn' : 'sub-btn';
 }
 
@@ -1942,6 +2027,286 @@ pressable($('btn-quiz-next'), () => {
   quiz = null;
   stopSong();
   if (done) done();
+});
+
+// ====================================================================
+// ひとり対戦（CPU戦。v0.9）
+// ====================================================================
+const BATTLE_MODES = ['random', 'counter', 'finish', 'valve'];
+const battleOpt = () => {
+  const o = { opp: 11, level: 'regular', cards: 'basic', ...(settings.battle || {}) };
+  if (!CONFIG.BATTLE.OPPONENTS.includes(o.opp)) o.opp = 11;
+  return o;
+};
+function battleUnlocked() {
+  return !!loadStory().cleared[CONFIG.BATTLE.UNLOCK_CHAPTER];
+}
+pressable($('btn-battle'), () => {
+  if (!battleUnlocked()) { toast(TEXT.battleLocked); return; }
+  renderBattleSetup();
+  show('screen-battle');
+});
+
+// 選択ボタンの列（CPUの数・強さ・カード）
+function segButtons(el, items, cur, onPick) {
+  el.innerHTML = '';
+  items.forEach(([val, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(val === cur));
+    b.textContent = label;
+    b.addEventListener('click', () => { audio.click(); onPick(val); });
+    el.appendChild(b);
+  });
+}
+function renderBattleSetup() {
+  const o = battleOpt();
+  const save = (patch) => { settings.battle = { ...o, ...patch }; saveSettings(settings); renderBattleSetup(); };
+  segButtons($('opt-opp'), CONFIG.BATTLE.OPPONENTS.map((n) => [n, TEXT.battleOppN(n)]), o.opp, (v) => save({ opp: v }));
+  segButtons($('opt-level'), ['novice', 'regular', 'master'].map((k) => [k, TEXT.levels[k]]), o.level, (v) => save({ level: v }));
+  segButtons($('opt-cards'), ['basic', 'all'].map((k) => [k, TEXT.cardSets[k]]), o.cards, (v) => save({ cards: v }));
+  $('battle-rules').innerHTML = `<ul>${TEXT.battleRules.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
+  const r = loadRecords();
+  $('battle-best').textContent = r.battlePlays ? TEXT.battleBest(r.battleWins, r.battleBestRank) : '';
+}
+pressable($('btn-battle-start'), () => startRun('battle'));
+
+// 名前：自分は「あなた」、CPU は「シャルル2号」のように
+const pnameOf = (p) => (p.me ? TEXT.you : TEXT.botName(TEXT.charNames[p.char], p.num));
+const pname = (id) => pnameOf(run.players[id]);
+
+// 開始前の3秒のカウントダウン（全員同時に始まる）
+async function battleCountdown() {
+  busy = true;
+  for (const n of ['3', '2', '1']) {
+    showBanner(n, true);
+    audio.click();
+    await wait(CONFIG.BATTLE.COUNTDOWN_MS / 3);
+    if (!run || run.kind !== 'battle') return;
+  }
+  showBanner(TEXT.duel, true);
+  busy = false;
+  run.me.targetAt = 0;
+  startLoop();
+  battleFxLoop();
+}
+
+// 左右の縁に相手を並べる（6.9：8人以下は顔＋名前＋メーター、20人以下は顔＋メーター、それより多いと細い棒だけ）
+function buildBattleUI(keepMode = false) {
+  const others = run.players.filter((p) => !p.me);
+  const n = others.length;
+  const dens = n <= 8 ? 'full' : n <= 20 ? 'face' : 'bar';
+  const half = Math.ceil(n / 2);
+  const cols = [$('opp-left'), $('opp-right')];
+  cols.forEach((c, k) => {
+    c.className = `opp-col ${k ? 'right' : 'left'} ${dens}`;
+    c.innerHTML = '';
+    others.slice(k ? half : 0, k ? n : half).forEach((p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'opp';
+      b.dataset.id = String(p.id);
+      b.setAttribute('aria-label', pnameOf(p));
+      b.innerHTML = (dens === 'bar' ? '' : '<canvas></canvas>')
+        + (dens === 'full' ? `<span class="nm">${esc(pnameOf(p))}</span>` : '')
+        + '<i class="m"><i></i></i><em class="vb"></em>';
+      b.addEventListener('click', () => {
+        if (!run || run.kind !== 'battle' || run.me.alive) return;
+        if (run.setCoolTarget(p.id)) { audio.click(); renderBattleLive(); }
+      });
+      c.appendChild(b);
+      if (dens !== 'bar') {
+        const cv = b.querySelector('canvas');
+        requestAnimationFrame(() => paintChar(cv, p.char, p.alive ? 'normal' : 'ascend'));
+        b._expr = p.alive ? 'normal' : 'ascend';
+      }
+    });
+  });
+  // 攻撃先の4つのボタン
+  const tb = $('target-bar');
+  tb.innerHTML = '';
+  BATTLE_MODES.forEach((m) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'radio');
+    b.dataset.mode = m;
+    b.textContent = TEXT.modes[m];
+    b.addEventListener('click', () => { if (!run || run.kind !== 'battle') return; run.setMode(m); audio.click(); renderBattleLive(); });
+    tb.appendChild(b);
+  });
+  if (!keepMode) { $('pending').innerHTML = ''; fxShots = []; }
+  $('screen-play').classList.toggle('cooling', !run.me.alive);
+  $('cool-bar').hidden = run.me.alive;
+}
+
+// 毎回の表示の更新（危険メーター・着弾待ち・狙われ・攻撃先・冷却係）
+function renderBattleLive() {
+  if (!run || run.kind !== 'battle') return;
+  const me = run.me;
+  const myTargets = me.alive ? run.targetsOf(me) : [];
+  const attackers = me.alive ? run.attackersOf(0) : [];
+  const coolTo = me.alive ? null : run.coolTargetOf(me);
+  document.querySelectorAll('.opp').forEach((el) => {
+    const p = run.players[Number(el.dataset.id)];
+    const fill = el.querySelector('.m i');
+    if (fill) fill.style.setProperty('--m', `${p.alive ? p.meter : 0}%`);
+    el.classList.toggle('dead', !p.alive);
+    el.classList.toggle('aiming', attackers.includes(p.id));
+    el.classList.toggle('mine', myTargets.includes(p.id));
+    el.classList.toggle('cool', coolTo === p.id);
+    el.classList.toggle('warn', p.alive && p.meter >= CONFIG.DOJO.WARN_AT);
+    el.querySelector('.vb').textContent = p.valves ? String(p.valves) : '';
+    const cv = el.querySelector('canvas');
+    const ex = p.alive ? 'normal' : 'ascend';
+    if (cv && el._expr !== ex) { el._expr = ex; paintChar(cv, p.char, ex); }
+  });
+  // 着弾待ち：炎のアイコン。数字は熱波の量、下の線は着弾までの残り
+  const B = CONFIG.BATTLE;
+  $('pending').innerHTML = me.pending.map((h) => {
+    const left = Math.max(0, Math.min(1, (h.at - run.clock) / B.LAND_MS));
+    return `<span class="flame"><svg viewBox="0 0 16 20" aria-hidden="true"><path d="M8 1c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-4 3-7 1 2 2 3 3 3 0-3-1-5 0-7z" fill="#1B2A49"/></svg><b>${h.amt}</b><i style="width:${(left * 100).toFixed(0)}%"></i></span>`;
+  }).join('');
+  const aim = $('aimed');
+  aim.hidden = !attackers.length;
+  aim.textContent = TEXT.aimed(attackers.length);
+  document.querySelectorAll('#target-bar button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === me.mode)));
+  $('target-bar').classList.toggle('off', !me.alive);
+  if (!me.alive) $('cool-text').textContent = coolTo !== null ? TEXT.coolNow(pname(coolTo)) : '';
+}
+
+// 起きたことの演出
+function onBattleEvents(evs) {
+  for (const e of evs) {
+    if (e.type === 'heat') {
+      if (e.from !== 0) e.sent.forEach(([to]) => { if (to === 0) shoot(e.from, 0); });
+    } else if (e.type === 'land') {
+      if (e.to === 0) {
+        view.shake();
+        vibrate(40);
+        if (e.jam && e.jamInfo) {
+          audio.deny();
+          showMessage(e.jamInfo.type === 'to_celsius' ? TEXT.jamCelsius : TEXT.jamFrost, 'show', CONFIG.ANIM.NOTICE_MS);
+          if (!busy) { renderHand(); renderField(); }
+        }
+      } else flashOpp(e.to);
+    } else if (e.type === 'burst') {
+      if (e.id === 0) {
+        // 自分の破裂：冷却係になる
+        view.burst();
+        view.setExpr('ascend', 2500);
+        audio.burst();
+        showBanner(TEXT.youBurst);
+        $('screen-play').classList.add('cooling');
+        $('cool-bar').hidden = false;
+        music.setHeartbeat(false);
+        setTimeout(() => { if (run && run.kind === 'battle') { view.clearBurst(); view.setExpr('normal'); } }, 1600);
+        showMessage(TEXT.coolPick, 'show', CONFIG.ANIM.NOTICE_MS * 2);
+      } else {
+        flashOpp(e.id);
+        if (e.by === 0) { showMessage(TEXT.koBy(pname(e.id)), 'show', CONFIG.ANIM.NOTICE_MS); audio.feverStart(false); }
+      }
+    } else if (e.type === 'final') {
+      showBanner(TEXT.finalTwo, true);
+      if (!run.me.alive && run.me.cheerFor !== null) showMessage(TEXT.cheerFor(pname(run.me.cheerFor)), 'show', CONFIG.ANIM.NOTICE_MS * 2);
+    } else if (e.type === 'cool') {
+      if (e.to === 0) { showMessage(TEXT.coolSent(TEXT.you), 'show', 1200); }
+    } else if (e.type === 'cool_full') {
+      if (e.from === 0) showMessage(TEXT.coolFull(pname(e.to)), 'show', CONFIG.ANIM.NOTICE_MS);
+    } else if (e.type === 'phase') {
+      showMessage(TEXT.phaseUp(e.stages.join('〜')), 'show', CONFIG.ANIM.NOTICE_MS);
+    }
+  }
+}
+
+// 自分のジャストのあと：熱波・相殺・冷却ガスの一言と、飛んでいく熱波
+function afterBattleJust(info) {
+  if (info.cooling) {
+    if (info.cooled !== null && info.cooled !== undefined) { showMessage(TEXT.coolSent(pname(info.cooled)), 'show', 1500); shoot(0, info.cooled, true); }
+  } else {
+    const parts = [];
+    if (info.offset) parts.push(TEXT.heatOffset(info.offset));
+    (info.sent || []).forEach(([id, amt]) => { parts.push(TEXT.heatSent(amt, pname(id))); shoot(0, id); });
+    if (parts.length) showMessage(parts.join('　'), 'show', 1800);
+  }
+  renderBattleLive();
+}
+
+function flashOpp(id) {
+  const el = document.querySelector(`.opp[data-id="${id}"]`);
+  if (el) replay(el, 'hit');
+}
+
+// ---- 線と、飛んでいく熱波（画面全体の透明なキャンバス） ----
+let fxShots = [];
+let fxRunning = false;
+function oppPoint(id) {
+  if (id === 0) {
+    const r = $('bombe').getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height * 0.55 };
+  }
+  const el = document.querySelector(`.opp[data-id="${id}"]`);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+function shoot(from, to, cool = false) {
+  fxShots.push({ from, to, t0: performance.now(), cool });
+}
+function battleFxLoop() {
+  if (fxRunning) return;
+  fxRunning = true;
+  const cv = $('battle-fx');
+  const step = (now) => {
+    if (!run || run.kind !== 'battle' || $('screen-play').hidden) { fxRunning = false; cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); return; }
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    // 自分を狙っている相手との細い線
+    if (run.me.alive) {
+      const me = oppPoint(0);
+      ctx.strokeStyle = 'rgba(27, 42, 73, 0.35)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([4, 4]);
+      for (const id of run.attackersOf(0)) {
+        const p = oppPoint(id);
+        if (!p) continue;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(me.x, me.y); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+    // 飛んでいく熱波（ネイビーの玉）と冷却ガス（白地に青の輪）
+    fxShots = fxShots.filter((sh) => now - sh.t0 < 650);
+    for (const sh of fxShots) {
+      const a = oppPoint(sh.from);
+      const b = oppPoint(sh.to);
+      if (!a || !b) continue;
+      const k = Math.min(1, (now - sh.t0) / 650);
+      const e = 1 - Math.pow(1 - k, 2);
+      const x = a.x + (b.x - a.x) * e;
+      const y = a.y + (b.y - a.y) * e - Math.sin(Math.PI * k) * 40;
+      ctx.beginPath();
+      ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = sh.cool ? '#FFFFFF' : '#1B2A49';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#2F6FED';
+      ctx.stroke();
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// 自分が破裂したあと：残りを早送りして結果へ
+pressable($('btn-ff'), () => {
+  if (!run || run.kind !== 'battle' || run.me.alive || busy) return;
+  run.fastForward();
+  finishRun(true);
 });
 
 // ---------- 起動 ----------

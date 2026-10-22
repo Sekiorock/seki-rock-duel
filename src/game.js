@@ -1,9 +1,9 @@
 // 1人分の盤面の進行（選ぶ、出す、判定）。ひとりでも対戦でも同じものを使う。
 
-import { CONFIG } from './config.js?v=0.8.0';
-import { eq } from './frac.js?v=0.8.0';
-import { startState, applySequence, isTempCard, measure } from './cards.js?v=0.8.0';
-import { generateProblem, rerollHand, estimateMistake, enumerateSolutions } from './puzzle.js?v=0.8.0';
+import { CONFIG } from './config.js?v=0.9.0';
+import { eq } from './frac.js?v=0.9.0';
+import { startState, applySequence, isTempCard, measure } from './cards.js?v=0.9.0';
+import { generateProblem, rerollHand, estimateMistake, enumerateSolutions } from './puzzle.js?v=0.9.0';
 
 let uidCounter = 1;
 const withUid = (c) => (c && !c.uid ? { ...c, uid: uidCounter++ } : c);

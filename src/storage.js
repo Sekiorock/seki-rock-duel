@@ -91,6 +91,7 @@ const DEFAULT_RECORDS = {
   taBest: 0, taPlays: 0,
   daily: {},            // { YYYYMMDD: { cards, timeMs, misses } }
   finalBest: 0,         // 総まとめ試験の最高点（v0.8）
+  battlePlays: 0, battleWins: 0, battleBestRank: 0, // ひとり対戦（v0.9）。最高順位は 0 = まだ
   totals: { ...DEFAULT_TOTALS },
 };
 

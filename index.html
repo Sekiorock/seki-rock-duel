@@ -7,7 +7,7 @@
   <meta name="format-detection" content="telephone=no">
   <title>セキオロックデュエル</title>
   <!-- ?v= は版番号。版が変わるたびに必ず新しいファイルを読み込ませるための印 -->
-  <link rel="stylesheet" href="style.css?v=0.8.0">
+  <link rel="stylesheet" href="style.css?v=0.9.0">
   <script>
     // 読み込みに失敗したとき（古いファイルが混ざったときなど）に、白い画面のままにしない
     (function () {
@@ -45,6 +45,9 @@
           <b data-t="dojo">道場</b><small data-t="dojoDesc">危険メーターに追われながら解き続ける</small>
           <em id="dojo-best" class="menu-best"></em>
         </button>
+        <button id="btn-battle" class="menu-btn battle" type="button">
+          <b data-t="battle">ひとり対戦</b><small id="battle-sub" data-t="battleDesc">CPU 11体・39体とバトル</small>
+        </button>
         <div class="menu-grid">
           <button id="btn-story" class="menu-btn small story" type="button">
             <b data-t="story">ストーリー</b><small id="story-sub" data-t="storyDesc">気体の精たちと対決</small>
@@ -68,7 +71,11 @@
         </div>
       </div>
     </div>
-    <p id="version" class="version">v0.8.0</p>
+    <button id="btn-qr" class="qr-btn" type="button">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.5 5.5h2v2h-2zM16.5 5.5h2v2h-2zM5.5 16.5h2v2h-2zM14 14h3v3h-3zM18 18h3v3h-3zM18 14h3v2h-3zM14 18h2v3h-2z" fill="currentColor"/></svg>
+      <span data-t="qrBtn">友だちにすすめる</span>
+    </button>
+    <p id="version" class="version">v0.9.0</p>
   </section>
 
   <!-- ストーリー：章の一覧（単元全体の地図） -->
@@ -207,6 +214,27 @@
     </button>
   </section>
 
+  <!-- ひとり対戦の準備（v0.9） -->
+  <section id="screen-battle" class="screen scroll" hidden>
+    <header class="topbar">
+      <button class="sub-btn" type="button" data-t="back" data-go-home>もどる</button>
+      <h2 class="screen-title" data-t="battle">ひとり対戦</h2>
+      <div class="topbar-right">
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+        <button class="icon-btn" type="button" data-mute-toggle aria-label="音"></button>
+      </div>
+    </header>
+    <p class="section-label" data-t="battleOpp">CPUの数</p>
+    <div id="opt-opp" class="seg" role="radiogroup"></div>
+    <p class="section-label" data-t="battleLevel">CPUの強さ</p>
+    <div id="opt-level" class="seg" role="radiogroup"></div>
+    <p class="section-label" data-t="battleCards">カード</p>
+    <div id="opt-cards" class="seg" role="radiogroup"></div>
+    <div id="battle-rules" class="battle-rules"></div>
+    <p id="battle-best" class="battle-best"></p>
+    <button id="btn-battle-start" class="duel-btn battle-start" type="button" data-t="battleStart">バトル開始！</button>
+  </section>
+
   <!-- プレイ画面（練習室と道場で共通） -->
   <section id="screen-play" class="screen" hidden>
     <div id="fever-bar" class="fever-bar"><i></i></div>
@@ -253,6 +281,8 @@
         <div class="danger-tube"><div id="danger-fill" class="danger-fill"></div></div>
         <b id="danger-num" class="danger-num num">0</b>
       </div>
+      <div id="pending" class="pending" aria-live="polite"></div>
+      <div id="aimed" class="aimed" hidden></div>
       <div id="stamps" class="stamps" aria-live="polite"></div>
       <div id="banner" class="banner"></div>
     </div>
@@ -266,6 +296,15 @@
     </div>
 
     <div id="hand" class="hand"></div>
+    <!-- ひとり対戦：攻撃先・冷却係・左右の相手・線 -->
+    <div id="target-bar" class="target-bar" role="radiogroup"></div>
+    <div id="cool-bar" class="cool-bar" hidden>
+      <span id="cool-text"></span>
+      <button id="btn-ff" class="sub-btn" type="button" data-t="battleSkip">結果へ</button>
+    </div>
+    <div id="opp-left" class="opp-col left"></div>
+    <div id="opp-right" class="opp-col right"></div>
+    <canvas id="battle-fx" class="battle-fx" aria-hidden="true"></canvas>
   </section>
 
   <!-- 道場の結果 -->
@@ -282,6 +321,7 @@
         <p id="result-rank-note" class="result-rank-note"></p>
       </div>
       <div id="result-stats" class="result-stats"></div>
+      <div id="result-battle" class="result-battle" hidden></div>
       <div id="result-titles" class="result-titles"></div>
       <div id="result-friend" class="result-friend" hidden>
         <canvas id="friend-canvas" class="friend-canvas" aria-hidden="true"></canvas>
@@ -310,6 +350,21 @@
     </div>
   </div>
 
+  <!-- 友だちにすすめる：このゲームのQRコード（v0.9） -->
+  <div id="qr-overlay" class="overlay" hidden>
+    <div class="panel qr-panel">
+      <div class="qr-top">
+        <h3 data-t="qrTitle">友だちにすすめる</h3>
+        <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
+      </div>
+      <p class="qr-note" data-t="qrNote">スマホのカメラで読み取ると、このゲームが開きます</p>
+      <img id="qr-img" class="qr-img" src="assets/qr.svg?v=0.9.0" alt="QR code" width="240" height="240">
+      <p id="qr-url" class="qr-url num"></p>
+      <button id="btn-qr-copy" class="sub-btn" type="button" data-t="qrCopy">URLをコピー</button>
+      <button id="btn-qr-close" class="duel-btn" type="button" data-t="close">閉じる</button>
+    </div>
+  </div>
+
   <!-- 絵柄の詳しい表示（図鑑） -->
   <div id="art-detail" class="overlay" hidden>
     <div class="panel art-panel">
@@ -335,6 +390,6 @@
   </div>
 
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
-  <script type="module" src="src/main.js?v=0.8.0"></script>
+  <script type="module" src="src/main.js?v=0.9.0"></script>
 </body>
 </html>
