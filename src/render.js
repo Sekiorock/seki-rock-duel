@@ -8,8 +8,8 @@
 //   物質量 n … 粒の数（n に比例。v0.6〜）
 //   混合気体 … 窒素 N₂ は黒の粒、酸素 O₂ はシアンの粒（v0.7〜、v1.0 で配色変更）。温度は粒の速さと温度計で見る
 
-import { CONFIG } from './config.js?v=1.1.0';
-import { drawChar } from './chars.js?v=1.1.0';
+import { CONFIG } from './config.js?v=1.2.0';
+import { drawChar } from './chars.js?v=1.2.0';
 
 const NAVY = '#121212';
 const BLUE = '#FE2C55';

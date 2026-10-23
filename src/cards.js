@@ -3,8 +3,8 @@
 // N は物質量（v0.6〜）。開始時の物質量を 6 とする相対の値（6 → 12 で 2 倍）。実際の mol は pV/(RT) で表示する。
 // 混合気体（v0.7〜）では、さらに A（窒素 N₂）と B（酸素 O₂）の物質量を持つ。N = A + B
 
-import { frac, mul, div, add, isInt } from './frac.js?v=1.1.0';
-import { CONFIG } from './config.js?v=1.1.0';
+import { frac, mul, div, add, isInt } from './frac.js?v=1.2.0';
+import { CONFIG } from './config.js?v=1.2.0';
 
 // ---- カードを作る ----
 export const vmul = (num, den) => ({ type: 'vmul', num, den });   // 体積を num/den 倍

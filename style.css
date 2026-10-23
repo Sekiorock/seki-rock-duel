@@ -1436,3 +1436,29 @@ button:disabled.sub-btn { opacity: 0.4; }
 .demo-finger[hidden] { display: none; }
 .demo-finger.tap { animation: fingertap 260ms ease; }
 @keyframes fingertap { 0% { transform: scale(1); } 45% { transform: scale(0.82) translateY(3px); } 100% { transform: scale(1); } }
+
+/* ---------- v1.2 遊び方 ---------- */
+.pill-row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.howto-btn.new { background: var(--blue); color: var(--white); border-color: var(--navy); animation: howtopulse 1.6s ease-in-out infinite; }
+@keyframes howtopulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(37, 244, 238, 0.0); } 50% { box-shadow: 0 0 0 6px rgba(37, 244, 238, 0.6); } }
+.howto-demo { display: block; margin: 6px auto 4px; }
+.howto-sec { margin: 14px 0; padding: 12px 14px; border: 3px solid var(--navy); border-radius: 16px; background: var(--white); }
+.howto-sec h3 { margin: 0 0 6px; font-size: 17px; font-weight: 900; }
+.howto-sec ul { margin: 0; padding-left: 1.2em; font-size: 14px; line-height: 1.65; }
+.howto-sec > p { margin: 0 0 6px; font-size: 13px; }
+.howto-cards { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.howto-card { display: flex; align-items: center; gap: 10px; }
+.howto-card > div { flex: none; pointer-events: none; transform: scale(0.85); transform-origin: left center; margin-right: -8px; }
+.howto-card p { margin: 0; font-size: 13.5px; line-height: 1.5; }
+.road { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.road li { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; }
+.road li i { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--navy); font-style: normal; font-size: 13px; background: var(--white); }
+.road li.done i { background: var(--cyan); }
+.road li.done { opacity: 0.75; }
+.road-sec { background: var(--pale); }
+.live-ready { margin: 8px 0 4px; padding: 10px 12px; border: 2px solid var(--navy); border-radius: 14px; background: var(--white); }
+.live-ready b { font-size: 14px; }
+.live-ready p { margin: 2px 0 6px; font-size: 12.5px; }
+.link-btn { margin-top: 8px; background: none; border: none; padding: 0; font-weight: 800; text-decoration: underline; color: var(--navy); font-size: 13px; }
+#screen-battle .seg button { font-size: 12px; }
+.pill-row .qr-btn { margin: 10px 0 0; }

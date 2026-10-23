@@ -1,33 +1,33 @@
 // 全体の進行（画面の切り替え）と、盤面の表示・タッチ操作。
 // 練習室・道場・タイムアタック・今日の5問・昇段試験は、同じプレイ画面を使う（run.kind で切り替える）。
 
-import { CONFIG } from './config.js?v=1.1.0';
-import { TEXT, formatP, formatV, formatT, formatMol, setLang, getLang, LANGS } from './text.js?v=1.1.0';
-import { toNumber, div } from './frac.js?v=1.1.0';
-import { createRng, randomSeed } from './rng.js?v=1.1.0';
-import { cardLines, isTempCard, isMix, measure, applyCard, celsiusOf, fahrenheitOf } from './cards.js?v=1.1.0';
-import { Board } from './game.js?v=1.1.0';
-import { trapModelsInHand } from './puzzle.js?v=1.1.0';
+import { CONFIG } from './config.js?v=1.2.0';
+import { TEXT, formatP, formatV, formatT, formatMol, setLang, getLang, LANGS } from './text.js?v=1.2.0';
+import { toNumber, div } from './frac.js?v=1.2.0';
+import { createRng, randomSeed } from './rng.js?v=1.2.0';
+import { cardLines, isTempCard, isMix, measure, applyCard, celsiusOf, fahrenheitOf } from './cards.js?v=1.2.0';
+import { Board } from './game.js?v=1.2.0';
+import { trapModelsInHand } from './puzzle.js?v=1.2.0';
 import {
   Dojo, PracticeRun, TimeAttack, DailyRun, ExamRun, StoryDuel, FinalRun, finalGrade, chapterOf, dateKey, makeKantei, makeZQuiz,
   rankProgress, examAvailable, dojoExp, taExp, dailyExp, rollPack, earnedTitles, TITLES,
   addMastery, masteryStars, MASTERY_CARDS,
-} from './solo.js?v=1.1.0';
-import { Calculator } from './calc.js?v=1.1.0';
-import { connect, netReady, useMock } from './net.js?v=1.1.0';
-import { Room, LiveRun, NAME_MAX } from './live.js?v=1.1.0';
+} from './solo.js?v=1.2.0';
+import { Calculator } from './calc.js?v=1.2.0';
+import { connect, netReady, useMock } from './net.js?v=1.2.0';
+import { Room, LiveRun, NAME_MAX } from './live.js?v=1.2.0';
 import qrcode from './vendor/qrcode.js?v=1.0.0';
-import { BattleRun } from './battle.js?v=1.1.0';
-import { BombeView, FxLayer, drawZGraph } from './render.js?v=1.1.0';
-import { AudioEngine } from './audio.js?v=1.1.0';
-import { Music } from './music.js?v=1.1.0';
-import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=1.1.0';
-import { STORY_TEXT } from './story_text.js?v=1.1.0';
+import { BattleRun } from './battle.js?v=1.2.0';
+import { BombeView, FxLayer, drawZGraph } from './render.js?v=1.2.0';
+import { AudioEngine } from './audio.js?v=1.2.0';
+import { Music } from './music.js?v=1.2.0';
+import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=1.2.0';
+import { STORY_TEXT } from './story_text.js?v=1.2.0';
 import {
   migrate, loadSettings, saveSettings, recordMistake, favoriteMistake,
   loadRecords, saveRecords, loadProfile, saveProfile, loadCollection, saveCollection,
   loadTitles, saveTitles, loadMastery, saveMastery, loadStory, saveStory,
-} from './storage.js?v=1.1.0';
+} from './storage.js?v=1.2.0';
 
 const $ = (id) => document.getElementById(id);
 let calc = null; // 電卓（v1.0。下の「電卓」で作る）
@@ -146,6 +146,7 @@ function toggleLang() {
   if (!$('screen-result').hidden && lastResult) renderResult(lastResult);
   if (!$('screen-records').hidden) renderRecords();
   if (!$('screen-battle').hidden) renderBattleSetup();
+  if (!$('screen-howto').hidden) renderHowto();
   if (battleLike() && !$('screen-play').hidden) { buildBattleUI(true); renderBattleLive(); }
   if (!$('screen-live').hidden) renderLiveForm();
   if (!$('screen-room').hidden && room) renderRoom(room.data);
@@ -264,6 +265,7 @@ function renderTitleScreen() {
   const mainChs = CONFIG.STORY.CHAPTERS.filter((c) => !c.hidden);
   const cleared = mainChs.filter((c) => st.cleared[c.id]).length;
   $('story-sub').textContent = cleared ? `${TEXT.chapterCleared} ${cleared}/${mainChs.length}` : TEXT.storyDesc;
+  $('btn-howto').classList.toggle('new', !settings.seenHowto);
   const bOpen = battleUnlocked();
   $('btn-battle').classList.toggle('locked', !bOpen);
   $('battle-sub').textContent = !bOpen ? TEXT.battleLocked
@@ -1235,6 +1237,7 @@ function finishRun(natural) {
     res.liveRun = run; // 結果画面のあとに届いた集計で、表を作り直すため
     if (natural) {
       rec.livePlays = (rec.livePlays || 0) + 1;
+      rec.totals.coolGasMaxInMatch = Math.max(rec.totals.coolGasMaxInMatch || 0, sum.coolSent);
       if (sum.won) rec.liveWins = (rec.liveWins || 0) + 1;
       res.exp = sum.justs * B.EXP_PER_JUST + (sum.total - sum.rank) * B.EXP_PER_RANK + (sum.won ? B.EXP_WIN : 0);
       col.pending += 1;
@@ -2102,8 +2105,9 @@ pressable($('btn-quiz-next'), () => {
 // ====================================================================
 const BATTLE_MODES = ['random', 'counter', 'finish', 'valve'];
 const battleOpt = () => {
-  const o = { opp: 11, level: 'regular', cards: 'basic', ...(settings.battle || {}) };
-  if (!CONFIG.BATTLE.OPPONENTS.includes(o.opp)) o.opp = 11;
+  // はじめは慣れるための練習（3体・見習い）から（v1.2）
+  const o = { opp: 3, level: 'novice', cards: 'basic', ...(settings.battle || {}) };
+  if (!CONFIG.BATTLE.OPPONENTS.includes(o.opp)) o.opp = 3;
   return o;
 };
 function battleUnlocked() {
@@ -2131,7 +2135,7 @@ function segButtons(el, items, cur, onPick) {
 function renderBattleSetup() {
   const o = battleOpt();
   const save = (patch) => { settings.battle = { ...o, ...patch }; saveSettings(settings); renderBattleSetup(); };
-  segButtons($('opt-opp'), CONFIG.BATTLE.OPPONENTS.map((n) => [n, TEXT.battleOppN(n)]), o.opp, (v) => save({ opp: v }));
+  segButtons($('opt-opp'), CONFIG.BATTLE.OPPONENTS.map((n) => [n, n <= 3 ? TEXT.battleOppPractice(n) : TEXT.battleOppN(n)]), o.opp, (v) => save({ opp: v }));
   segButtons($('opt-level'), ['novice', 'regular', 'master'].map((k) => [k, TEXT.levels[k]]), o.level, (v) => save({ level: v }));
   segButtons($('opt-cards'), ['basic', 'all'].map((k) => [k, TEXT.cardSets[k]]), o.cards, (v) => save({ cards: v }));
   $('battle-rules').innerHTML = `<ul>${TEXT.battleRules.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
@@ -2416,6 +2420,8 @@ function setLiveStatus(text, kind) {
 
 // ニックネームとキャラクター（仲間にしたキャラクターから選ぶ。まだいなければボイル）
 function renderLiveForm() {
+  $('live-ready').innerHTML = `<b>${TEXT.liveReadyTitle}</b><p>${TEXT.howtoRoadNote}</p>${roadHTML()}<button type="button" class="link-btn" id="btn-live-howto">${TEXT.liveReadyLink}</button>`;
+  $('btn-live-howto').addEventListener('click', () => openHowto());
   const inp = $('live-name');
   if (document.activeElement !== inp) inp.value = settings.liveName || '';
   inp.placeholder = TEXT.liveName;
@@ -2592,17 +2598,27 @@ class DemoRun {
 
 let demo = null; // { chapter, stopped }
 
+// 遊び方の画面から：段階1の問題で実演し、終わったら遊び方に戻る
+function startDemoStage(stage) {
+  demo = { chapter: null, stage, stopped: false, back: 'screen-howto' };
+  startRun('demo', { stage });
+  demoStartUI();
+}
+function demoStartUI() {
+  $('screen-play').classList.add('demo');
+  $('demo-bar').hidden = false;
+  $('btn-demo-go').hidden = true;
+  $('demo-shield').hidden = false;
+  runDemoScript(demo);
+}
+
 function startDemo(chapterId) {
   // 動作確認用：URL に ?nodemo を付けると実演を飛ばす
   try { if (new URLSearchParams(location.search).has('nodemo')) { startRun('story', { chapter: chapterId }); return; } } catch (e) { /* なし */ }
   const ch = chapterOf(chapterId);
   demo = { chapter: chapterId, stopped: false };
   startRun('demo', { stage: ch.stages[0] });
-  $('screen-play').classList.add('demo');
-  $('demo-bar').hidden = false;
-  $('btn-demo-go').hidden = true;
-  $('demo-shield').hidden = false;
-  runDemoScript(demo);
+  demoStartUI();
 }
 
 // 分数の倍率を「×2」「×1/3」の形に
@@ -2641,17 +2657,17 @@ async function fingerTo(el, tap = true) {
   f.hidden = false;
   f.style.left = `${r.left + r.width * 0.55}px`;
   f.style.top = `${r.top + r.height * 0.55}px`;
-  await wait(650);
-  if (tap) { replay(f, 'tap'); await wait(260); }
+  await wait(520);
+  if (tap) { replay(f, 'tap'); await wait(220); }
 }
 
 async function runDemoScript(d) {
   const alive = () => demo === d && !d.stopped && run && run.kind === 'demo';
-  await wait(700);
+  await wait(400);
   if (!alive()) return;
   const sol = board.solutions.slice().sort((a, b) => a.length - b.length)[0];
   demoCaption(TEXT.demoGoal(targetStr()));
-  await wait(2300);
+  await wait(1800);
   if (!alive()) return;
   let st = board.state;
   for (const i of sol) {
@@ -2665,7 +2681,7 @@ async function runDemoScript(d) {
     const after = applyCard(st, card);
     demoCaption(demoStepText(card, st, after, board.goal));
     st = after;
-    await wait(2500);
+    await wait(1900);
     if (!alive()) return;
   }
   demoCaption(TEXT.demoPress);
@@ -2690,6 +2706,7 @@ function demoFinished() {
 function endDemo() {
   if (!demo) return;
   const id = demo.chapter;
+  const back = demo.back;
   demo.stopped = true;
   demo = null;
   stopLoop();
@@ -2699,10 +2716,60 @@ function endDemo() {
   $('demo-shield').hidden = true;
   $('demo-finger').hidden = true;
   $('demo-cap').className = 'demo-cap';
+  if (back) { stopSong(); run = null; renderHowto(); show(back); return; }
   startRun('story', { chapter: id });
 }
 $('btn-demo-skip').addEventListener('click', endDemo);
 pressable($('btn-demo-go'), endDemo);
+
+// ====================================================================
+// 遊び方（v1.2）
+// ====================================================================
+// おすすめの順番と、いまの進み具合（チェック）
+function roadDone() {
+  const st = loadStory();
+  const r = loadRecords();
+  return [!!st.cleared[1], r.dojoPlays >= 1, (r.battlePlays || 0) >= 1, (r.livePlays || 0) >= 1];
+}
+function roadHTML() {
+  const done = roadDone();
+  return `<ol class="road">${TEXT.howtoRoad.map((t, i) => `<li class="${done[i] ? 'done' : ''}"><i>${done[i] ? '✓' : i + 1}</i>${esc(t)}</li>`).join('')}</ol>`;
+}
+
+// 見本のカード（遊び方のカード一覧）
+const HOWTO_CARDS = () => {
+  const list = [
+    ['vmul', { type: 'vmul', num: 1, den: 2 }], ['vset', { type: 'vset', v: 4 }], ['tset_k', { type: 'tset_k', k: 400 }],
+    ['tset_c', { type: 'tset_c', k: 400 }], ['nmul', { type: 'nmul', num: 2, den: 1 }], ['add', { type: 'add', gas: 'B', k: 2 }],
+  ];
+  if (loadStory().cleared[8]) list.push(['tset_f', { type: 'tset_f', k: 300 }]);
+  return list;
+};
+
+function renderHowto() {
+  const secs = TEXT.howtoSections.map((sec) => {
+    if (sec.cards) {
+      return `<section class="howto-sec"><h3>${esc(sec.h)}</h3><div class="howto-cards">${HOWTO_CARDS().map(([k, c]) => {
+        const el = makeCard(c);
+        return `<div class="howto-card"><div class="${el.className}">${el.innerHTML}</div><p>${esc(TEXT.howtoCards[k])}</p></div>`;
+      }).join('')}</div></section>`;
+    }
+    return `<section class="howto-sec"><h3>${esc(sec.h)}</h3><ul>${sec.p.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></section>`;
+  });
+  const road = `<section class="howto-sec road-sec"><h3>${TEXT.howtoRoadTitle}</h3><p>${TEXT.howtoRoadNote}</p>${roadHTML()}</section>`;
+  $('howto-body').innerHTML = secs[0] + road + secs.slice(1).join('');
+}
+
+function openHowto() {
+  settings.seenHowto = true;
+  saveSettings(settings);
+  renderHowto();
+  show('screen-howto');
+  $('screen-howto').scrollTop = 0;
+  renderTitleScreen();
+}
+pressable($('btn-howto'), () => openHowto());
+pressable($('btn-howto-demo'), () => startDemoStage(1));
 
 // ---------- 起動 ----------
 applySkins();

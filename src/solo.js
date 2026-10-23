@@ -2,15 +2,15 @@
 // v0.3：道場。v0.4：タイムアタック、今日の5問、昇段試験、段位と経験値、カードパック、称号、熟練度。
 // どのモードも同じ形（board, clock, over, tick, onJust, onMiss, onReroll, summary）で、画面側から同じように扱える。
 
-import { CONFIG } from './config.js?v=1.1.0';
-import { Board, Vitals } from './game.js?v=1.1.0';
-import { generateProblem } from './puzzle.js?v=1.1.0';
-import { createRng } from './rng.js?v=1.1.0';
-import { frac } from './frac.js?v=1.1.0';
-import { ARTS } from './chars.js?v=1.1.0';
-import { Bot } from './bots.js?v=1.1.0';
-import { TRICKS } from './battle.js?v=1.1.0';
-import { startState } from './cards.js?v=1.1.0';
+import { CONFIG } from './config.js?v=1.2.0';
+import { Board, Vitals } from './game.js?v=1.2.0';
+import { generateProblem } from './puzzle.js?v=1.2.0';
+import { createRng } from './rng.js?v=1.2.0';
+import { frac } from './frac.js?v=1.2.0';
+import { ARTS } from './chars.js?v=1.2.0';
+import { Bot } from './bots.js?v=1.2.0';
+import { TRICKS } from './battle.js?v=1.2.0';
+import { startState } from './cards.js?v=1.2.0';
 
 export class Dojo {
   constructor({ rng, preferModel }) {

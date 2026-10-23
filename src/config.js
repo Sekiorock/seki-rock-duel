@@ -3,7 +3,7 @@
 
 export const CONFIG = {
   // タイトル画面の下に出す版番号（13.3 の付け方に従う）
-  VERSION: 'v1.1.0',
+  VERSION: 'v1.2.0',
 
   // 「友だちにすすめる」の QR コードが指す URL（QR の画像 assets/qr.svg と同じ）
   SHARE_URL: 'https://sekiorock.github.io/seki-rock-duel/',
@@ -274,10 +274,10 @@ export const CONFIG = {
 
   // ---- ひとり対戦（CPU戦、6章のルール。v0.9） ----
   BATTLE: {
-    OPPONENTS: [11, 39],          // CPU の数（自分を入れて12人・40人）
+    OPPONENTS: [3, 11, 39],       // CPU の数（自分を入れて4人・12人・40人）。3体は慣れるための練習（v1.2）
     COUNTDOWN_MS: 3000,
     // 強さの混ぜ方（5.6）：選んだ強さを中心に、1つ下と1つ上を混ぜる（下：中：上）
-    MIX: { 11: [3, 5, 3], 39: [11, 17, 11] },
+    MIX: { 3: [1, 1, 1], 11: [3, 5, 3], 39: [11, 17, 11] },
     // 熱波（6.2）
     HEAT_JUST: 1,
     HEAT_CHAIN: [[2, 1], [4, 2], [7, 3]], // [この連鎖目から, 足す熱波]

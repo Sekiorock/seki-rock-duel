@@ -2,10 +2,10 @@
 // v1.1：本番ルール（熱波・着弾待ち・相殺・おじゃま・攻撃先・破裂とバルブ・冷却係・決勝・切断）。ルールは CPU 戦と同じ（battle.js）。
 // 通信は net.js（Firebase か、動作確認用のにせもの）。データの形は仕様書 7.2。
 
-import { CONFIG } from './config.js?v=1.1.0';
-import { Board } from './game.js?v=1.1.0';
-import { createRng } from './rng.js?v=1.1.0';
-import { phaseAt, heatOf, sendFrost, sendToCelsius } from './battle.js?v=1.1.0';
+import { CONFIG } from './config.js?v=1.2.0';
+import { Board } from './game.js?v=1.2.0';
+import { createRng } from './rng.js?v=1.2.0';
+import { phaseAt, heatOf, sendFrost, sendToCelsius } from './battle.js?v=1.2.0';
 
 export const NAME_MAX = 8;
 const ROOM_TTL_MS = 3 * 60 * 60 * 1000; // 作成から3時間たった部屋は、次に部屋を作る人が消す
