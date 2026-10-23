@@ -4,7 +4,15 @@
 // ★ 依頼者が書き換えるところ ★
 // Firebase のコンソールで「ウェブアプリを追加」したときに出る設定値を、下の FIREBASE_CONFIG に貼り付ける。
 // 手順は docs/FIREBASE_SETUP.md。null のままだと「まだ準備中」と表示する。
-export const FIREBASE_CONFIG = null;
+export const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDdhQLt2fg4bb3ByOdGDUHJXpPhXYFB10o",
+  authDomain: "seki-rock-duel.firebaseapp.com",
+  databaseURL: "https://seki-rock-duel-default-rtdb.firebaseio.com",
+  projectId: "seki-rock-duel",
+  storageBucket: "seki-rock-duel.firebasestorage.app",
+  messagingSenderId: "806929229548",
+  appId: "1:806929229548:web:9f3cb8453527465e4da7c9"
+};
 // 例：
 // export const FIREBASE_CONFIG = {
 //   apiKey: 'AIza....',
