@@ -1403,7 +1403,6 @@ button:disabled.sub-btn { opacity: 0.4; }
   text-shadow: -5px -3px 0 var(--cyan), 5px 3px 0 var(--blue);
 }
 .room-countdown[hidden] { display: none; }
-#screen-play.live .target-bar { display: none !important; }
 .result-battle > div.me { background: var(--pale); border-radius: 8px; }
 /* 接続テスト（test.html） */
 .test-home { display: inline-grid; place-items: center; text-decoration: none; color: var(--navy); }
@@ -1415,3 +1414,25 @@ button:disabled.sub-btn { opacity: 0.4; }
 .test-verdict:empty { display: none; }
 #screen-live .topbar .sub-btn, #screen-room .topbar .sub-btn, #screen-battle .topbar .sub-btn { white-space: nowrap; flex: none; }
 #screen-live .screen-title, #screen-room .screen-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-size: clamp(16px, 5vw, 22px); }
+
+/* ---------- v1.1 デュエルの実演 ---------- */
+#screen-play[data-mode="demo"] .hud-dojo, #screen-play[data-mode="demo"] .hud-generic { display: none; }
+.demo-cap {
+  position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 150px); z-index: 6;
+  background: var(--white); border: 3px solid var(--navy); border-radius: 16px; box-shadow: 0 5px 0 var(--navy);
+  padding: 10px 14px; font-size: 15px; font-weight: 800; line-height: 1.5; text-align: center;
+  opacity: 0; pointer-events: none; transform: translateY(-6px);
+}
+#screen-play.demo .demo-cap.show { animation: democap 260ms ease forwards; }
+@keyframes democap { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.demo-shield { position: fixed; inset: 0; z-index: 7; }
+.demo-shield[hidden] { display: none; }
+.demo-bar { position: absolute; top: calc(env(safe-area-inset-top) + 8px); left: 12px; z-index: 9; display: flex; align-items: center; gap: 8px; }
+.demo-bar[hidden] { display: none; }
+.demo-tag { font-size: 12px; font-weight: 900; letter-spacing: 0.15em; background: var(--blue); color: var(--white); border-radius: 8px; padding: 4px 10px; }
+#screen-play.demo .hud-practice { visibility: hidden; }
+.demo-go { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%); z-index: 9; }
+.demo-finger { position: fixed; z-index: 20; width: 44px; height: 52px; margin: -6px 0 0 -12px; pointer-events: none; transition: left 600ms cubic-bezier(.3,.8,.3,1), top 600ms cubic-bezier(.3,.8,.3,1); filter: drop-shadow(2px 3px 0 rgba(18, 18, 18, 0.25)); }
+.demo-finger[hidden] { display: none; }
+.demo-finger.tap { animation: fingertap 260ms ease; }
+@keyframes fingertap { 0% { transform: scale(1); } 45% { transform: scale(0.82) translateY(3px); } 100% { transform: scale(1); } }

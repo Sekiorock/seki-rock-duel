@@ -1,32 +1,33 @@
 // 全体の進行（画面の切り替え）と、盤面の表示・タッチ操作。
 // 練習室・道場・タイムアタック・今日の5問・昇段試験は、同じプレイ画面を使う（run.kind で切り替える）。
 
-import { CONFIG } from './config.js?v=1.0.0';
-import { TEXT, formatP, formatV, formatT, formatMol, setLang, getLang, LANGS } from './text.js?v=1.0.0';
-import { toNumber } from './frac.js?v=1.0.0';
-import { createRng, randomSeed } from './rng.js?v=1.0.0';
-import { cardLines, isTempCard, isMix, measure } from './cards.js?v=1.0.0';
-import { trapModelsInHand } from './puzzle.js?v=1.0.0';
+import { CONFIG } from './config.js?v=1.1.0';
+import { TEXT, formatP, formatV, formatT, formatMol, setLang, getLang, LANGS } from './text.js?v=1.1.0';
+import { toNumber, div } from './frac.js?v=1.1.0';
+import { createRng, randomSeed } from './rng.js?v=1.1.0';
+import { cardLines, isTempCard, isMix, measure, applyCard, celsiusOf, fahrenheitOf } from './cards.js?v=1.1.0';
+import { Board } from './game.js?v=1.1.0';
+import { trapModelsInHand } from './puzzle.js?v=1.1.0';
 import {
   Dojo, PracticeRun, TimeAttack, DailyRun, ExamRun, StoryDuel, FinalRun, finalGrade, chapterOf, dateKey, makeKantei, makeZQuiz,
   rankProgress, examAvailable, dojoExp, taExp, dailyExp, rollPack, earnedTitles, TITLES,
   addMastery, masteryStars, MASTERY_CARDS,
-} from './solo.js?v=1.0.0';
-import { Calculator } from './calc.js?v=1.0.0';
-import { connect, netReady, useMock } from './net.js?v=1.0.0';
-import { Room, LiveRun, NAME_MAX } from './live.js?v=1.0.0';
+} from './solo.js?v=1.1.0';
+import { Calculator } from './calc.js?v=1.1.0';
+import { connect, netReady, useMock } from './net.js?v=1.1.0';
+import { Room, LiveRun, NAME_MAX } from './live.js?v=1.1.0';
 import qrcode from './vendor/qrcode.js?v=1.0.0';
-import { BattleRun } from './battle.js?v=1.0.0';
-import { BombeView, FxLayer, drawZGraph } from './render.js?v=1.0.0';
-import { AudioEngine } from './audio.js?v=1.0.0';
-import { Music } from './music.js?v=1.0.0';
-import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=1.0.0';
-import { STORY_TEXT } from './story_text.js?v=1.0.0';
+import { BattleRun } from './battle.js?v=1.1.0';
+import { BombeView, FxLayer, drawZGraph } from './render.js?v=1.1.0';
+import { AudioEngine } from './audio.js?v=1.1.0';
+import { Music } from './music.js?v=1.1.0';
+import { ARTS, ART_BY_ID, artURL, drawChar } from './chars.js?v=1.1.0';
+import { STORY_TEXT } from './story_text.js?v=1.1.0';
 import {
   migrate, loadSettings, saveSettings, recordMistake, favoriteMistake,
   loadRecords, saveRecords, loadProfile, saveProfile, loadCollection, saveCollection,
   loadTitles, saveTitles, loadMastery, saveMastery, loadStory, saveStory,
-} from './storage.js?v=1.0.0';
+} from './storage.js?v=1.1.0';
 
 const $ = (id) => document.getElementById(id);
 let calc = null; // 電卓（v1.0。下の「電卓」で作る）
@@ -51,6 +52,13 @@ const targetStr = () => (board.goal === 'P'
 const chName = (id) => (chapterOf(id) && chapterOf(id).hidden ? TEXT.hiddenChapter : TEXT.chapterN(id));
 // 対戦の形（CPU戦とみんなで対戦）は、同じ画面の作りを使う
 const battleLike = () => !!run && (run.kind === 'battle' || run.kind === 'live');
+// 教科書の参照の表示。ページ数は一切出さない（v1.1：依頼者の指示）。「例題4」「図8」のような名前だけ残す
+function refText(ref) {
+  if (!ref) return '';
+  const r = String(ref).replace(/pp?\.\s*\d+(\s*[〜~–-]\s*\d+)?/g, '').replace(/\s+/g, ' ').trim();
+  if (!r) return '';
+  return /教科書|おまけ|Beyond|Bonus/.test(r) ? r : TEXT.lessonRef(r);
+}
 const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
 const replay = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -366,7 +374,7 @@ function setOppExpr(expr, ms = 1400) {
 }
 
 const prefer = () => favoriteMistake(CONFIG.MISTAKE_MODELS);
-const SONG_OF = { practice: 'practice', dojo: 'dojo', ta: 'battle', daily: 'practice', exam: 'battle', story: 'battle', final: 'battle', battle: 'battle' };
+const SONG_OF = { practice: 'practice', dojo: 'dojo', ta: 'battle', daily: 'practice', exam: 'battle', story: 'battle', final: 'battle', battle: 'battle', demo: 'practice' };
 
 function startRun(kind, opts = {}) {
   const rng = createRng(randomSeed());
@@ -375,6 +383,7 @@ function startRun(kind, opts = {}) {
   else if (kind === 'daily') run = new DailyRun({ key: dateKey() });
   else if (kind === 'exam') run = new ExamRun({ rank: loadProfile().rank, rng });
   else if (kind === 'final') run = new FinalRun({ rng });
+  else if (kind === 'demo') run = new DemoRun({ stage: opts.stage, rng });
   else if (kind === 'live') run = new LiveRun({ room, seed: room.data.seed });
   else if (kind === 'battle') {
     const o = battleOpt();
@@ -509,6 +518,7 @@ function tick() {
 // モードが終わったとき（破裂、時間切れ、5問クリア、試験の合否）
 function endOfRun() {
   if (!run) return;
+  if (run.kind === 'demo') { demoFinished(); return; }
   if (run.kind === 'dojo' || (run.kind === 'story' && run.vitals.isBurst())) doBurst();
   else finishRun(true);
 }
@@ -657,6 +667,7 @@ function renderTargetLabel() {
   if (k === 'dojo' || k === 'ta' || k === 'daily') t = TEXT.targetStage(board.stage);
   else if (k === 'exam') t = TEXT.examTitleHud(TEXT.ranks[run.targetRank]);
   else if (k === 'story') t = `${chName(run.ch.id)} · ${TEXT.targetStage(board.stage)}`;
+  else if (k === 'demo') t = `${TEXT.demoLabel} · ${TEXT.targetStage(board.stage)}`;
   else if (k === 'battle' || k === 'live') t = `${k === 'live' ? TEXT.live : TEXT.battle} · ${TEXT.targetStage(board.stage)}`;
   else if (k === 'final') t = TEXT.finalStage(board.stage, Math.min(run.index + 1, run.total), run.total);
   else if (settings.assist) t = `${TEXT.targetLabel} · ${TEXT.assistOn}`;
@@ -969,6 +980,7 @@ function clearStamps() {
 
 // ---------- 熟練度・累計・称号の記録 ----------
 function recordDuel(result, snap, info) {
+  if (run && run.kind === 'demo') return; // 実演は記録しない
   const ok = result.kind === 'just';
   // 熟練度マップ：カードの種類ごと、罠の考え違いごと
   const m = loadMastery();
@@ -1004,6 +1016,7 @@ $('btn-duel').addEventListener('pointerdown', () => { if (!$('btn-duel').disable
 $('btn-duel').addEventListener('click', async () => {
   if (busy || paused || !run || run.over || !board.canDuel()) return;
   busy = true;
+  const duelRun = run;
   const pressAt = run.clock;
   const snap = {
     traps: trapModelsInHand(board.state, board.hand, board.target, board.goal),
@@ -1032,6 +1045,7 @@ $('btn-duel').addEventListener('click', async () => {
     prevStep = view.animateTo(num(st), A.STEP_MS);
   }
   await prevStep;
+  if (run !== duelRun) return; // とちゅうで別のモードに移った（実演のスキップなど）
   $('stamps').innerHTML = '';
 
   if (result.kind === 'just') await onJustShown(result, pressAt, snap);
@@ -1218,6 +1232,7 @@ function finishRun(natural) {
   // みんなで対戦：順位・経験値・パック（試合後に1つ）
   if (kind === 'live') {
     const B = CONFIG.BATTLE;
+    res.liveRun = run; // 結果画面のあとに届いた集計で、表を作り直すため
     if (natural) {
       rec.livePlays = (rec.livePlays || 0) + 1;
       if (sum.won) rec.liveWins = (rec.liveWins || 0) + 1;
@@ -1410,9 +1425,16 @@ function renderResult(res) {
   const rb = $('result-battle');
   rb.hidden = !((kind === 'battle' || kind === 'live') && !res.battleQuit);
   if (!rb.hidden && kind === 'live') {
-    // みんなで対戦：全員の順位
-    rb.innerHTML = `<p class="section-label">${TEXT.liveRanking}</p>`
-      + sum.ranking.map((r) => `<div${r.id === 0 ? ' class="me"' : ''}><span>${TEXT.battleRankBig(r.rank)}</span><b>${esc(pnameOf(sum.players[r.id]))}</b></div>`).join('');
+    // みんなで対戦：全員の記録（6.10）と順位
+    const nm = (id) => esc(pnameOf(sum.players[id]));
+    const row = (k, id, v) => `<div><span>${k}</span><b>${id === null || id === undefined ? '—' : nm(id)}</b>${v ? `<em>${v}</em>` : ''}</div>`;
+    rb.innerHTML = `<p class="section-label">${TEXT.battleAll}</p>`
+      + row(TEXT.battleWinner, sum.winner)
+      + row(TEXT.battleLongest, sum.chainTop.n ? sum.chainTop.id : null, sum.chainTop.n)
+      + row(TEXT.battleMostValves, sum.valveTop.n ? sum.valveTop.id : null, sum.valveTop.n)
+      + row(TEXT.battleCoolMvp, sum.coolTop.n ? sum.coolTop.id : null, sum.coolTop.n)
+      + `<p class="section-label">${TEXT.liveRanking}</p>`
+      + sum.ranking.map((r) => `<div${r.id === 0 ? ' class="me"' : ''}><span>${TEXT.battleRankBig(r.rank)}</span><b>${nm(r.id)}</b></div>`).join('');
   } else if (!rb.hidden) {
     const nm = (id) => esc(pnameOf(sum.players[id]));
     const row = (k, id, v) => `<div><span>${k}</span><b>${id === null || id === undefined ? '—' : nm(id)}</b>${v !== undefined ? `<em>${v}</em>` : ''}</div>`;
@@ -1799,7 +1821,8 @@ function startChapter(id) {
     st.seen[id] = true;
     saveStory(st);
     stopSong();
-    startRun('story', { chapter: id });
+    // デュエルの前に、カードを選んでデュエル！するところを実演して見せる（v1.1）
+    startDemo(id);
   });
 }
 
@@ -1847,7 +1870,7 @@ function renderPanel() {
     lesson.hidden = false;
     $('talk-char').style.visibility = 'hidden';
     bubble.hidden = true;
-    $('lesson-ref').textContent = p.ref ? TEXT.lessonRef(p.ref) : '';
+    $('lesson-ref').textContent = refText(p.ref);
     $('lesson-title').textContent = p.lesson;
     $('lesson-text').textContent = p.text;
     lesson.classList.toggle('nodemo', !p.demo && !p.graph);
@@ -1970,16 +1993,16 @@ function itemView(item) {
       choices: d.choices.map((id) => TEXT.gases[id]),
       answer: 0,
       explain: TEXT.kanteiExplain(d.m, d.t, d.T, d.p, d.V, d.M, TEXT.gases[d.gas]),
-      ref: 'p.45 (12)式',
+      ref: '(12)式',
     };
   }
   if (item.zq) {
     const d = item.zq;
     const sci = (p) => { const e = Math.floor(Math.log10(p)); return `${(p / 10 ** e).toFixed(1)}×10${String(e).split('').map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]).join('')}`; };
     if (d.kind === 'cond') {
-      return { q: TEXT.zCondQ(TEXT.zGases[d.gas]), choices: d.choices.map(([T, p]) => TEXT.zCondChoice(T, sci(p))), answer: 0, explain: TEXT.zCondExplain, ref: 'p.51〜52' };
+      return { q: TEXT.zCondQ(TEXT.zGases[d.gas]), choices: d.choices.map(([T, p]) => TEXT.zCondChoice(T, sci(p))), answer: 0, explain: TEXT.zCondExplain, ref: '' };
     }
-    return { q: TEXT.zGasQ, choices: d.choices.map((g) => TEXT.zGases[g]), answer: 0, explain: TEXT.zGasExplain(TEXT.zGases[d.choices[0]]), ref: 'p.52 図9' };
+    return { q: TEXT.zGasQ, choices: d.choices.map((g) => TEXT.zGases[g]), answer: 0, explain: TEXT.zGasExplain(TEXT.zGases[d.choices[0]]), ref: '図9' };
   }
   return storyText().chapters[item.ch || quiz.chapterId].quiz[item.fixed];
 }
@@ -2001,7 +2024,7 @@ function renderQuestion() {
   $('quiz-count').textContent = quiz.mode === 'kantei' ? TEXT.kanteiCount(quiz.i + 1) : quiz.mode === 'zlab' ? TEXT.zLabCount(quiz.i + 1) : `${quiz.i + 1} / ${total}`;
   document.querySelector('#screen-quiz .quiz-head b').textContent = quiz.mode === 'final' ? TEXT.final
     : item.kantei ? TEXT.kantei : item.zq ? TEXT.zLab : TEXT.quizTitle;
-  $('quiz-ref').textContent = it.ref ? TEXT.lessonRef(it.ref) : '';
+  $('quiz-ref').textContent = refText(it.ref);
   $('quiz-q').textContent = it.q;
   const box = $('quiz-choices');
   box.innerHTML = '';
@@ -2217,7 +2240,7 @@ function renderBattleLive() {
   aim.textContent = TEXT.aimed(attackers.length);
   document.querySelectorAll('#target-bar button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === me.mode)));
   $('target-bar').classList.toggle('off', !me.alive);
-  if (!me.alive) $('cool-text').textContent = run.kind === 'live' ? TEXT.liveWaiting : coolTo !== null ? TEXT.coolNow(pname(coolTo)) : '';
+  if (!me.alive) $('cool-text').textContent = coolTo !== null ? TEXT.coolNow(pname(coolTo)) : run.kind === 'live' ? TEXT.liveWaiting : '';
   $('btn-ff').hidden = run.kind === 'live';
 }
 
@@ -2482,6 +2505,11 @@ function renderRoom(d) {
     return;
   }
   room.seen = true;
+  // 結果画面を出したあとに、ほかの人の集計（最長連鎖・冷却ガス）が届いたら作り直す
+  if (!$('screen-result').hidden && lastResult && lastResult.kind === 'live' && lastResult.liveRun && !lastResult.battleQuit) {
+    lastResult.sum = lastResult.liveRun.summary();
+    renderResult(lastResult);
+  }
   const ps = room.players();
   $('room-count').textContent = TEXT.liveCount(ps.length);
   const box = $('room-players');
@@ -2493,7 +2521,7 @@ function renderRoom(d) {
   $('btn-room-start').disabled = ps.length < 2 || d.state !== 'lobby';
   $('room-msg').textContent = host ? (ps.length < 2 ? TEXT.liveNeed2 : '') : TEXT.liveWaitHost;
   // スタートの合図：全員が startAt にそろって始める（7.3）
-  if (d.state === 'countdown' && d.startAt && startScheduled !== d.startAt && (!run || run.kind !== 'live')) scheduleStart(d.startAt);
+  if (d.state === 'countdown' && d.startAt && startScheduled !== d.startAt && (!run || run.kind !== 'live' || run.over)) scheduleStart(d.startAt);
 }
 
 function scheduleStart(startAt) {
@@ -2541,6 +2569,140 @@ async function backToRoom() {
   show('screen-room');
   renderRoom(room.data);
 }
+
+// ====================================================================
+// デュエルの実演（v1.1）：ストーリーのデュエルの前に、指がカードを選んで「デュエル！」を押すところを見せる
+// ====================================================================
+class DemoRun {
+  constructor({ stage, rng }) {
+    this.kind = 'demo';
+    this.canReroll = false;
+    this.board = new Board({ stage, rng, preferModel: () => null });
+    this.clock = 0;
+    this.over = false;
+    this.mistakes = {};
+  }
+  get stage() { return this.board.stage; }
+  tick(dt) { this.clock += dt; return []; }
+  onJust(result) { this.over = true; return { chain: 1, smart: true, speed: false, points: 0 }; }
+  onMiss() { this.board.commitMiss(); }
+  onReroll() {}
+  summary() { return {}; }
+}
+
+let demo = null; // { chapter, stopped }
+
+function startDemo(chapterId) {
+  // 動作確認用：URL に ?nodemo を付けると実演を飛ばす
+  try { if (new URLSearchParams(location.search).has('nodemo')) { startRun('story', { chapter: chapterId }); return; } } catch (e) { /* なし */ }
+  const ch = chapterOf(chapterId);
+  demo = { chapter: chapterId, stopped: false };
+  startRun('demo', { stage: ch.stages[0] });
+  $('screen-play').classList.add('demo');
+  $('demo-bar').hidden = false;
+  $('btn-demo-go').hidden = true;
+  $('demo-shield').hidden = false;
+  runDemoScript(demo);
+}
+
+// 分数の倍率を「×2」「×1/3」の形に
+function ratioText(a, b) {
+  const r = div(b, a);
+  return r.d === 1 ? `×${r.n}` : `×${r.n}/${r.d}`;
+}
+
+// カード1枚ぶんの説明（そのカードで圧力がどう変わるか）
+function demoStepText(card, before, after, goal) {
+  const r = ratioText(before.P, after.P);
+  const val = formatP(measure(after, goal));
+  const res = goal === 'P' ? TEXT.demoResP(val) : TEXT.demoResPart(TEXT.gasShort[goal], val);
+  switch (card.type) {
+    case 'vmul': return TEXT.demoVmul(ratioText(before.V, after.V), r, res);
+    case 'vset': return TEXT.demoVset(formatV(before.V), formatV(after.V), r, res);
+    case 'tset_k': return TEXT.demoTk(formatT(before.T), formatT(after.T), r, res);
+    case 'tset_c': return TEXT.demoTc(celsiusOf(card.k), formatT(after.T), r, res);
+    case 'tset_f': return TEXT.demoTf(fahrenheitOf(card.k), celsiusOf(card.k), formatT(after.T), r, res);
+    case 'nmul': return TEXT.demoNmul(ratioText(before.N, after.N), r, res);
+    case 'add': return TEXT.demoAdd(TEXT.gasShort[card.gas], card.k, r, res);
+    default: return res;
+  }
+}
+
+function demoCaption(text) {
+  const el = $('demo-cap');
+  el.textContent = text;
+  replay(el, 'show');
+}
+
+// 指を、要素の真ん中へ動かして、軽くたたく
+async function fingerTo(el, tap = true) {
+  const f = $('demo-finger');
+  const r = el.getBoundingClientRect();
+  f.hidden = false;
+  f.style.left = `${r.left + r.width * 0.55}px`;
+  f.style.top = `${r.top + r.height * 0.55}px`;
+  await wait(650);
+  if (tap) { replay(f, 'tap'); await wait(260); }
+}
+
+async function runDemoScript(d) {
+  const alive = () => demo === d && !d.stopped && run && run.kind === 'demo';
+  await wait(700);
+  if (!alive()) return;
+  const sol = board.solutions.slice().sort((a, b) => a.length - b.length)[0];
+  demoCaption(TEXT.demoGoal(targetStr()));
+  await wait(2300);
+  if (!alive()) return;
+  let st = board.state;
+  for (const i of sol) {
+    const card = board.hand[i];
+    await fingerTo(document.querySelectorAll('#hand .hand-pos')[i].querySelector('.card') || document.querySelectorAll('#hand .hand-pos')[i]);
+    if (!alive()) return;
+    board.place(i);
+    audio.place(board.field.indexOf(i));
+    renderField();
+    renderHand();
+    const after = applyCard(st, card);
+    demoCaption(demoStepText(card, st, after, board.goal));
+    st = after;
+    await wait(2500);
+    if (!alive()) return;
+  }
+  demoCaption(TEXT.demoPress);
+  await fingerTo($('btn-duel'));
+  if (!alive()) return;
+  $('demo-finger').hidden = true;
+  $('btn-duel').disabled = false;
+  $('btn-duel').click(); // 本物と同じ流れで、カードが吸い込まれ、JUST! になる
+}
+
+// 実演の JUST! のあと
+function demoFinished() {
+  if (!demo) return;
+  stopLoop();
+  demoCaption(TEXT.demoDone);
+  $('btn-demo-go').hidden = false;
+  $('demo-shield').hidden = true;
+  $('demo-finger').hidden = true;
+}
+
+// 実演を終えて、本番のデュエルへ（スキップも同じ）
+function endDemo() {
+  if (!demo) return;
+  const id = demo.chapter;
+  demo.stopped = true;
+  demo = null;
+  stopLoop();
+  busy = false;
+  $('screen-play').classList.remove('demo');
+  $('demo-bar').hidden = true;
+  $('demo-shield').hidden = true;
+  $('demo-finger').hidden = true;
+  $('demo-cap').className = 'demo-cap';
+  startRun('story', { chapter: id });
+}
+$('btn-demo-skip').addEventListener('click', endDemo);
+pressable($('btn-demo-go'), endDemo);
 
 // ---------- 起動 ----------
 applySkins();

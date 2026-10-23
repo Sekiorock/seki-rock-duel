@@ -1,11 +1,11 @@
 // 対戦ルール（6章）。v0.5：ストーリーの相手の技（おじゃま）。
 // v0.9：ひとり対戦（CPU戦）の熱波・着弾待ち・相殺・攻撃先・バルブ・冷却係（下の BattleRun）。ライブ戦でも同じルールを使う。
 
-import { frost, tsetC, tsetF, nmul, addGas, applyCard, isValidN, isValidP, isValidAmount, isMix } from './cards.js?v=1.0.0';
-import { CONFIG } from './config.js?v=1.0.0';
-import { generateProblem } from './puzzle.js?v=1.0.0';
-import { Board } from './game.js?v=1.0.0';
-import { Bot } from './bots.js?v=1.0.0';
+import { frost, tsetC, tsetF, nmul, addGas, applyCard, isValidN, isValidP, isValidAmount, isMix } from './cards.js?v=1.1.0';
+import { CONFIG } from './config.js?v=1.1.0';
+import { generateProblem } from './puzzle.js?v=1.1.0';
+import { Board } from './game.js?v=1.1.0';
+import { Bot } from './bots.js?v=1.1.0';
 
 // 場に出ていない手札の位置（霜は除く）
 function freeSlots(board, pred = () => true) {

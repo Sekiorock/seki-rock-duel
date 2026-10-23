@@ -2,8 +2,8 @@
 // 4つ打ちのドラムに、連鎖が伸びるほど楽器が加わり、フィーバーで一気に解放される。
 // 楽器の出し入れは、必ず次の小節の頭にそろえる。
 
-import { CONFIG } from './config.js?v=1.0.0';
-import { midiToHz } from './audio.js?v=1.0.0';
+import { CONFIG } from './config.js?v=1.1.0';
+import { midiToHz } from './audio.js?v=1.1.0';
 
 const MAJ = [0, 4, 7];
 const MIN = [0, 3, 7];

@@ -3,7 +3,7 @@
 
 export const CONFIG = {
   // タイトル画面の下に出す版番号（13.3 の付け方に従う）
-  VERSION: 'v1.0.0',
+  VERSION: 'v1.1.0',
 
   // 「友だちにすすめる」の QR コードが指す URL（QR の画像 assets/qr.svg と同じ）
   SHARE_URL: 'https://sekiorock.github.io/seki-rock-duel/',

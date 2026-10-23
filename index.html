@@ -7,7 +7,7 @@
   <meta name="format-detection" content="telephone=no">
   <title>セキオロックデュエル</title>
   <!-- ?v= は版番号。版が変わるたびに必ず新しいファイルを読み込ませるための印 -->
-  <link rel="stylesheet" href="style.css?v=1.0.0">
+  <link rel="stylesheet" href="style.css?v=1.1.0">
   <script>
     // 読み込みに失敗したとき（古いファイルが混ざったときなど）に、白い画面のままにしない
     (function () {
@@ -80,7 +80,7 @@
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.5 5.5h2v2h-2zM16.5 5.5h2v2h-2zM5.5 16.5h2v2h-2zM14 14h3v3h-3zM18 18h3v3h-3zM18 14h3v2h-3zM14 18h2v3h-2z" fill="currentColor"/></svg>
       <span data-t="qrBtn">友だちにすすめる</span>
     </button>
-    <p id="version" class="version">v1.0.0</p>
+    <p id="version" class="version">v1.1.0</p>
   </section>
 
   <!-- ストーリー：章の一覧（単元全体の地図） -->
@@ -265,7 +265,6 @@
         <input id="live-code" class="live-input code num" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="1234">
         <button id="btn-room-join" class="sub-btn" type="button" data-t="liveJoin">入る</button>
       </div>
-      <a id="live-test-link" class="live-test-link" href="test.html" data-t="liveTestLink">接続テストのページ</a>
     </div>
   </section>
 
@@ -362,7 +361,16 @@
     <div id="opp-left" class="opp-col left"></div>
     <div id="opp-right" class="opp-col right"></div>
     <canvas id="battle-fx" class="battle-fx" aria-hidden="true"></canvas>
+    <!-- デュエルの実演（v1.1）：説明の吹き出し、指、さわれないようにする覆い、スキップ／やってみよう -->
+    <div id="demo-cap" class="demo-cap" aria-live="polite"></div>
+    <div id="demo-shield" class="demo-shield" hidden></div>
+    <div id="demo-bar" class="demo-bar" hidden>
+      <span class="demo-tag" data-t="demoLabel">実演</span>
+      <button id="btn-demo-skip" class="sub-btn" type="button" data-t="demoSkip">スキップ</button>
+      <button id="btn-demo-go" class="duel-btn demo-go" type="button" data-t="demoGo" hidden>やってみよう！</button>
+    </div>
   </section>
+  <div id="demo-finger" class="demo-finger" hidden aria-hidden="true"><svg viewBox="0 0 40 48" width="44" height="52"><path d="M14 4c2.2 0 4 1.8 4 4v14l2-.6c1.5-.4 3 .5 3.5 2l.2.6 1.6-.4c1.6-.4 3.2.6 3.6 2.2l.1.3 1.3-.3c1.7-.4 3.4.7 3.7 2.4l.9 4.5c.9 4.6-1.2 9.3-5.3 11.6L26 46H13l-7.5-10.8c-1-1.4-.8-3.4.6-4.5 1.3-1 3.1-.9 4.3.2L10 31V8c0-2.2 1.8-4 4-4z" fill="#FFFFFF" stroke="#121212" stroke-width="2.6" stroke-linejoin="round"/><circle cx="14" cy="6" r="5" fill="#FE2C55" opacity="0.35"/></svg></div>
 
   <!-- 道場の結果 -->
   <section id="screen-result" class="screen" hidden>
@@ -418,7 +426,7 @@
         <button class="lang-btn" type="button" data-lang-toggle aria-label="言語 / Language"><span data-l="ja">JP</span><span data-l="en">EN</span></button>
       </div>
       <p class="qr-note" data-t="qrNote">スマホのカメラで読み取ると、このゲームが開きます</p>
-      <img id="qr-img" class="qr-img" src="assets/qr.svg?v=1.0.0" alt="QR code" width="240" height="240">
+      <img id="qr-img" class="qr-img" src="assets/qr.svg?v=1.1.0" alt="QR code" width="240" height="240">
       <p id="qr-url" class="qr-url num"></p>
       <button id="btn-qr-copy" class="sub-btn" type="button" data-t="qrCopy">URLをコピー</button>
       <button id="btn-qr-close" class="duel-btn" type="button" data-t="close">閉じる</button>
@@ -450,6 +458,6 @@
   </div>
 
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
-  <script type="module" src="src/main.js?v=1.0.0"></script>
+  <script type="module" src="src/main.js?v=1.1.0"></script>
 </body>
 </html>

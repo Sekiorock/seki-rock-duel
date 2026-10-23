@@ -1,9 +1,8 @@
 // ライブ対戦の通信（仕様書7章。v1.0〜）。Firebase Realtime Database と匿名ログインを使う。
 // Firebase の SDK は、みんなで対戦の画面を開いたときに初めて CDN から読み込む（ほかのモードでは読み込まない）。
 //
-// ★ 依頼者が書き換えるところ ★
-// Firebase のコンソールで「ウェブアプリを追加」したときに出る設定値を、下の FIREBASE_CONFIG に貼り付ける。
-// 手順は docs/FIREBASE_SETUP.md。null のままだと「まだ準備中」と表示する。
+// Firebase の設定値（v1.0 で依頼者が設定したもの。公開してよい値で、安全はデータベースのルールで守る）。
+// プロジェクトを作り直したときは、docs/FIREBASE_SETUP.md の手順で、ここを書き換える。
 export const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDdhQLt2fg4bb3ByOdGDUHJXpPhXYFB10o",
   authDomain: "seki-rock-duel.firebaseapp.com",

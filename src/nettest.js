@@ -1,8 +1,8 @@
 // 接続テストのページ（test.html）。校内 Wi-Fi で Firebase に届くか、どのくらい遅れるかを確かめる。
-import { CONFIG } from './config.js?v=1.0.0';
-import { TEXT, setLang, getLang, LANGS, defaultLang } from './text.js?v=1.0.0';
-import { connect, netReady } from './net.js?v=1.0.0';
-import { loadSettings, saveSettings } from './storage.js?v=1.0.0';
+import { CONFIG } from './config.js?v=1.1.0';
+import { TEXT, setLang, getLang, LANGS, defaultLang } from './text.js?v=1.1.0';
+import { connect, netReady } from './net.js?v=1.1.0';
+import { loadSettings, saveSettings } from './storage.js?v=1.1.0';
 
 const $ = (id) => document.getElementById(id);
 const settings = loadSettings();
